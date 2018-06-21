@@ -5,15 +5,24 @@ import (
 	"fmt"
 	"time"
 	"github.com/jochenvg/go-udev"
-	"github.com/joshdk/ykmango"
 	"github.com/ebfe/scard"
 	"context"
 	"encoding/binary"
+	"github.com/gotk3/gotk3/gtk"
+	"log"
+	"github.com/gotk3/gotk3/gdk"
+	"reflect"
 	"golang.org/x/crypto/pbkdf2"
 	"crypto/sha1"
 	"crypto/hmac"
 	"math/rand"
-	"reflect"
+	"net"
+	"strings"
+	"github.com/google/gousb"
+	"os/exec"
+	"io"
+	"os"
+	"github.com/jessevdk/go-flags"
 )
 
 type TAG byte
@@ -63,22 +72,44 @@ const (
 	SEND_REMAINING INS = 0xa5
 )
 
+type YubiKeyError uint32
+
+const (
+	_ = iota
+	ErrorChkWrong YubiKeyError = iota
+	ErrorWrongPassword YubiKeyError = iota
+	ErrorUserCancled YubiKeyError = iota
+)
+
 type YubiKey struct {
 	card scard.Card
 	tlvs []Tlv
 }
 
+func (e YubiKeyError) Error() string {
+	return fmt.Sprint(e)
+}
+
 func (self YubiKey) send_apdu(cl byte, ins byte, p1 byte, p2 byte, data []byte) ([]byte, error) {
 	card := self.card
 	header := []byte {cl, ins, p1, p2, byte(len(data))}
-	rsp, err := card.Transmit(append(header, data...))
-	fmt.Println(self)
+	telegram := append(header, data...)
+
+	fmt.Printf("sending: % 0x\n", telegram)
+
+	rsp, err := card.Transmit(telegram)
+
+	if err != nil {
+		return rsp, err
+	}
+
+	fmt.Printf("received %d bytes: % 0x\n", len(rsp), rsp)
 
 	chk_buffer := rsp[len(rsp) - 2:]
 
 	chk := binary.BigEndian.Uint16(chk_buffer)
 	if (chk != 0x9000) {
-		panic("chk wrong")
+		return rsp, ErrorChkWrong
 	}
 
 	rsp = rsp[:len(rsp) - 2]
@@ -94,8 +125,11 @@ func (self YubiKey) selectAid(aid []byte) ([]byte, error) {
 var SLOT_DEVICE_SERIAL byte = 0x10
 var OTP_INS_YK2_REQ byte = 0x01
 
-func (self YubiKey) read_serial() (uint32, error) {
+func (self YubiKey) readSerial() (uint32, error) {
 	resp, err := self.send_apdu(0, OTP_INS_YK2_REQ, SLOT_DEVICE_SERIAL, 0, []byte {})
+	if err != nil {
+		return 0, err
+	}
 	serial := binary.BigEndian.Uint32(resp)
 	return serial, err
 }
@@ -105,7 +139,7 @@ type Tlv struct {
 	value []byte
 }
 
-func (self YubiKey) parse_tlvs(response []byte) (map[byte]Tlv, error) {
+func (self YubiKey) parseTlvs(response []byte) (map[byte]Tlv, error) {
 	tlvs := make(map[byte]Tlv)
 	for len(response) > 0 {
 		tag := response[0]
@@ -142,18 +176,109 @@ func (self Tlv) buffer() []byte {
 	return res
 }
 
-func parse_truncated(data []byte) uint32 {
+func parseTruncated(data []byte) uint32 {
 	res := binary.BigEndian.Uint32(data) & 0x7fffffff
 	return res
 }
 
-func main() {
+func askPassword(additionalMessage string) (string, error) {
 
+	password := ""
+	var err error
+
+	// Initialize GTK without parsing any command line arguments.
+	gtk.Init(nil)
+
+	// Create a new toplevel window, set its title, and connect it to the
+	// "destroy" signal to exit the GTK main loop when it is destroyed.
+	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
+	if err != nil {
+		log.Fatal("Unable to create window:", err)
+	}
+	win.SetTitle("Yubikey Password Required")
+	win.Connect("destroy", func() {
+		gtk.MainQuit()
+		err = ErrorUserCancled
+	})
+
+	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+		keyEvent := &gdk.EventKey{ev}
+
+		if keyEvent.KeyVal() == gdk.KEY_Escape {
+			err = ErrorUserCancled
+			win.Destroy()
+		}
+	})
+
+	win.SetPosition(gtk.WIN_POS_CENTER)
+
+	input, err := gtk.EntryNew()
+
+	input.SetInputPurpose(gtk.INPUT_PURPOSE_PASSWORD)
+	input.SetVisibility(false)
+
+	button, err := gtk.ButtonNew()
+	button.SetLabel("OK")
+	grid, err := gtk.GridNew()
+	if err != nil {
+		log.Fatal("Unable to create grid:", err)
+		if err != nil {
+			return "", err
+		}
+	}
+	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+
+	if len(additionalMessage) > 0 {
+		message, err := gtk.LabelNew(additionalMessage)
+		if err != nil {
+			return "", err
+		}
+
+		message.SetMarginBottom(10)
+		grid.Add(message)
+	}
+
+	grid.Add(input)
+	grid.Add(button)
+
+	setPassword := func() {
+		text, e := input.GetText()
+
+		win.Destroy()
+
+		password = text
+		err = e
+	}
+
+	button.Connect("clicked", setPassword)
+	input.Connect("key-press-event", func(win *gtk.Entry, ev *gdk.Event) {
+		keyEvent := &gdk.EventKey{ev}
+
+		if keyEvent.KeyVal() == gdk.KEY_Return {
+			setPassword()
+		}
+	})
+
+	input.SetMarginBottom(10)
+	win.Add(grid)
+	grid.SetMarginBottom(10)
+	grid.SetMarginTop(10)
+	grid.SetMarginEnd(10)
+	grid.SetMarginStart(10)
+
+	win.ShowAll()
+
+	gtk.Main()
+
+	return password, err
+}
+
+func getCode() (string, error) {
 	// Establish a PC/SC context
 	scardCtx, err := scard.EstablishContext()
 	if err != nil {
 		fmt.Println("Error EstablishContext:", err)
-		return
+		return "", err
 	}
 
 	// Release the PC/SC context (when needed)
@@ -163,7 +288,7 @@ func main() {
 	readers, err := scardCtx.ListReaders()
 	if err != nil {
 		fmt.Println("Error ListReaders:", err)
-		return
+		return "", err
 	}
 
 	// Use the first reader
@@ -174,7 +299,7 @@ func main() {
 	card, err := scardCtx.Connect(reader, scard.ShareShared, scard.ProtocolAny)
 	if err != nil {
 		fmt.Println("Error Connect:", err)
-		return
+		return "", err
 	}
 
 	// Disconnect (when needed)
@@ -187,32 +312,43 @@ func main() {
 	AID_MGR := []byte{0xa0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17}
 
 
-	//var cmd_select_otp = append(append([]byte{0x00, GP_INS_SELECT, 0x04, 0x00}, byte(len(AID_OTP))), AID_OTP...)
-
 	rsp, err := yubikey.selectAid(AID_OTP)
+	if err != nil {
+		return "", err
+	}
 
-	serial, err := yubikey.read_serial()
+	serial, err := yubikey.readSerial()
 	if err != nil {
 		fmt.Println("Error Transmit:", err)
-		return
+		return "", err
 	}
 	fmt.Printf("% 0x \n", rsp)
 	fmt.Printf("serial %d\n", serial)
 
 	rsp_mgr, err := yubikey.selectAid(AID_MGR)
+	if err != nil {
+		return "", err
+	}
+
 	fmt.Printf("rsp_oath: % 0x \n", rsp_mgr)
 
 	var cmd_3 = []byte{0x00, 0x1D, 0x00, 0x00, 0x00}
 	rsp_3, err := card.Transmit(cmd_3)
 	if err != nil {
 		fmt.Println("Error Transmit:", err)
-		return
+		return "", err
 	}
 	fmt.Printf("% 0x\n", rsp_3)
 
 	resp_oath, err := yubikey.selectAid(AID_OATH)
+	if err != nil {
+		return "", err
+	}
 
-	tlvs, err := yubikey.parse_tlvs(resp_oath)
+	tlvs, err := yubikey.parseTlvs(resp_oath)
+	if err != nil {
+		return "", err
+	}
 
 	OATH_TAG_NAME := byte(0x71)
 	OATH_TAG_CHALLENGE := byte(0x74)
@@ -228,7 +364,11 @@ func main() {
 	fmt.Printf("algorithm: % 0x\n", tlvs[OATH_TAG_ALGORITHM])
 	fmt.Printf("version: % 0x\n", tlvs[OATH_TAG_VERSION])
 
-	pwd := "abc"
+	pwd, err := askPassword("")
+	if err != nil {
+		return "", err
+	}
+
 	key := pbkdf2.Key([]byte(pwd), tlvs[OATH_TAG_NAME].value, 1000, 16, sha1.New)
 
 	h := hmac.New(sha1.New, key)
@@ -248,8 +388,19 @@ func main() {
 	INS_VALIDATE := byte(0xa3)
 
 	verify_resp, err := yubikey.send_apdu(0, INS_VALIDATE, 0, 0, validate_data)
+	if err, ok := err.(YubiKeyError); ok && err == ErrorChkWrong {
+		if reflect.DeepEqual(verify_resp, []byte {0x6A, 0x80}) {
+			return "", ErrorWrongPassword
+		}
+	}
+	if err != nil {
+		return "", err
+	}
 
-	verify_tlvs, err := yubikey.parse_tlvs(verify_resp)
+	verify_tlvs, err := yubikey.parseTlvs(verify_resp)
+	if err != nil {
+		return "", err
+	}
 
 	println(verify_tlvs)
 	fmt.Printf("verification: % 0x\n", verification)
@@ -270,23 +421,182 @@ func main() {
 	rsp_5, err := card.Transmit(cmd_5)
 	if err != nil {
 		fmt.Println("Error Transmit:", err)
-		return
+		return "", err
 	}
 	fmt.Printf("% 0x\n", rsp_5)
 
-	creds_tlvs, err := yubikey.parse_tlvs(rsp_5)
+	creds_tlvs, err := yubikey.parseTlvs(rsp_5)
+	if err != nil {
+		return "", err
+	}
 
 	TRUNCATED_RESPONSE := byte(0x76)
 
 	fmt.Printf("code is in: % 0x\n", creds_tlvs[TRUNCATED_RESPONSE].value)
 
-	code := parse_truncated(creds_tlvs[TRUNCATED_RESPONSE].value[1:])
+	code := parseTruncated(creds_tlvs[TRUNCATED_RESPONSE].value[1:])
 
-
-	//code := binary.BigEndian.Uint32(codeBuffer)
 	fmt.Printf("code: %06d\n", code)
 
-	println("hello world")
+	strCode := fmt.Sprintf("%06d", code)
+
+	return strCode, err
+}
+
+func isConnectedToTun() (bool, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		log.Print(fmt.Errorf("localAddresses: %v\n", err.Error()))
+		return false, err
+	}
+
+	for _, iface := range ifaces {
+		if (iface.Flags & net.FlagUp) == 0 {
+			continue
+		}
+
+		if strings.HasPrefix(iface.Name, "tun") {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func _checkUsb(usbContext *gousb.Context) (bool, error) {
+	found := false
+
+	devs, err := usbContext.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+		fmt.Println(desc)
+		if desc.Vendor == 0x1050 && desc.Product == 0x0407 {
+			found = true
+		}
+		return false
+	})
+
+	defer func() {
+		for _, d := range devs {
+			d.Close()
+		}
+	}()
+
+	return found, err
+}
+
+func connect(connectionName string, codeProvider func() (string, error)) error {
+	code, err := codeProvider()
+	if err != nil {
+		return err
+	}
+
+	subProcess := exec.Command("nmcli", "con", "up", connectionName, "passwd-file", "/dev/fd/0")
+	stdin, err := subProcess.StdinPipe()
+	if err != nil {
+		return err
+	}
+
+	defer stdin.Close()
+
+	subProcess.Stdout = os.Stdout
+	subProcess.Stderr = os.Stderr
+
+	if err = subProcess.Start(); err != nil { //Use start, not run
+		fmt.Println("An error occured: ", err) //replace with logger, or anything you want
+	}
+	if err != nil {
+		return err
+	}
+
+	io.WriteString(stdin, "vpn.secrets.password:" + code + "\n")
+	stdin.Close()
+	println("start connecting via nmcli")
+	subProcess.Wait()
+	println("finished connecting via nmcli")
+
+	return nil
+}
+
+type CodeProvider struct {
+	codeCache string
+	codeError error
+}
+
+func (self CodeProvider) Clear()  {
+	self.codeCache = ""
+}
+func (self CodeProvider) GetCode() (string, error) {
+	if len(self.codeCache) == 0 {
+		self.codeCache, self.codeError = getCode()
+	}
+	return self.codeCache, self.codeError
+}
+
+func connectIfNotConnectedAndYubikeyPresent(connectionName string, usbChecker func() (bool, error), codeProvider CodeProvider) {
+
+	retry := true
+
+	for i := 0; i < 100 && retry; i++ {
+		retry = false
+		isConnected, err := isConnectedToTun()
+		if err != nil {
+			panic("error checking conncetion")
+		}
+
+		isYubikeyPresent, err := usbChecker()
+		if err != nil {
+			panic("error checking usb devices")
+		}
+
+		if !isConnected && isYubikeyPresent {
+			err = connect(connectionName, codeProvider.GetCode)
+
+			if err, ok := err.(YubiKeyError); ok {
+				if err == ErrorWrongPassword {
+					codeProvider.Clear()
+					retry = true
+				}
+			}
+			if scardError, ok := err.(scard.Error); ok {
+				switch scardError {
+				case scard.ErrResetCard:
+					retry = true
+					time.Sleep(10 * time.Millisecond)
+				}
+			}
+		}
+	}
+
+}
+
+type Options struct {
+	ConnectionName string `required:"yes" short:"c" long:"connection" description:"The name of the connection as shown by 'nmcli c show'"`
+}
+
+func main() {
+	var opts Options
+
+	args, err := flags.Parse(&opts)
+
+	if err != nil {
+		panic(err)
+		panic(args)
+	}
+
+	fmt.Println(args)
+	fmt.Println(opts)
+	fmt.Println(opts.ConnectionName)
+	codeProvider := CodeProvider{}
+
+	usbContext := gousb.NewContext()
+	defer usbContext.Close()
+
+	checkUsb := func() (bool, error) {
+		return _checkUsb(usbContext)
+	}
+
+	// try initial connection
+	connectIfNotConnectedAndYubikeyPresent(opts.ConnectionName, checkUsb, codeProvider)
+
 	// Create Udev and Monitor
 	u := udev.Udev{}
 	m := u.NewMonitorFromNetlink("udev")
@@ -312,71 +622,11 @@ func main() {
 			if action == "add" {
 				println("add event")
 				fmt.Println("Event:", d.Syspath(), d.Action())
-				var code string
 
-				for i := 0; i < 100; i++ {
-
-					names, err := ykman.List()
-					if len(names) == 0 {
-						time.Sleep(10 * time.Millisecond)
-						continue
-					}
-					fmt.Println("names:", names, err)
-
-					for _, name := range names {
-						fmt.Printf("Found code named: %s\n", name)
-						// Found code named: aws-mfa
-					}
-
-					tmp, err := ykman.Generate("foo:vpn")
-					code = tmp
-					if err != nil {
-						panic(err.Error())
-					}
-					fmt.Println("code:", code, err)
-					break
-				}
-
-				fmt.Println("code:", code)
-
-				// Establish a PC/SC context
-				context, err := scard.EstablishContext()
-				if err != nil {
-					fmt.Println("Error EstablishContext:", err)
-					return
-				}
-
-				// Release the PC/SC context (when needed)
-				defer context.Release()
-
-				// List available readers
-				readers, err := context.ListReaders()
-				if err != nil {
-					fmt.Println("Error ListReaders:", err)
-					return
-				}
-
-				// Use the first reader
-				reader := readers[0]
-				fmt.Println("Using reader:", reader)
-
-				// Connect to the card
-				card, err := context.Connect(reader, scard.ShareShared, scard.ProtocolAny)
-				if err != nil {
-					fmt.Println("Error Connect:", err)
-					return
-				}
-
-				// Disconnect (when needed)
-				defer card.Disconnect(scard.LeaveCard)
-				if err != nil {
-					fmt.Println("Error Transmit:", err)
-					return
-				}
-				fmt.Println(rsp)
-
+				connectIfNotConnectedAndYubikeyPresent(opts.ConnectionName, checkUsb, codeProvider)
 			}
 		}
+		cancel()
 		fmt.Println("Channel closed")
 		wg.Done()
 	}()
@@ -384,10 +634,6 @@ func main() {
 		wg.Done()
 	}()
 	go func() {
-		fmt.Println("Starting timer to signal done")
-		<-time.After(20 * time.Second)
-		fmt.Println("Signalling done")
-		cancel()
 		wg.Done()
 	}()
 	wg.Wait()
