@@ -142,6 +142,11 @@ func (self Tlv) buffer() []byte {
 	return res
 }
 
+func parse_truncated(data []byte) uint32 {
+	res := binary.BigEndian.Uint32(data) & 0x7fffffff
+	return res
+}
+
 func main() {
 
 	// Establish a PC/SC context
@@ -247,22 +252,14 @@ func main() {
 	verify_tlvs, err := yubikey.parse_tlvs(verify_resp)
 
 	println(verify_tlvs)
-	fmt.Printf("verification: % 0x\n", verification)ubi-o
+	fmt.Printf("verification: % 0x\n", verification)
 	fmt.Printf("verification: % 0x\n", verify_tlvs[OATH_TAG_RESPONSE].value)
 
 	if (!reflect.DeepEqual(verification, verify_tlvs[OATH_TAG_RESPONSE].value)) {
 		panic("Verification failed")
 	}
 
-	var cmd_4 = []byte{0x00, 0xA4, 0x04, 0x00, 0x07, 0xA0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01}
-	rsp_4, err := card.Transmit(cmd_4)
-	if err != nil {
-		fmt.Println("Error Transmit:", err)
-		return
-	}
-	fmt.Printf("% 0x\n", rsp_4)
-
-	var cmd_5 = []byte{0x00, 0xA4, 0x00, 0x01, 0x0A, 0x74, 0x08}
+	var cmd_5 = []byte{0x00, byte(CALCULATE_ALL), 0x00, 0x01, 0x0A, 0x74, 0x08}
 
 	timeBuffer := make([]byte, 8)
 
@@ -277,11 +274,17 @@ func main() {
 	}
 	fmt.Printf("% 0x\n", rsp_5)
 
-	codeBuffer := rsp_5[len(rsp_5)-6:len(rsp_5)-2]
-	fmt.Printf("% 0x\n", codeBuffer)
+	creds_tlvs, err := yubikey.parse_tlvs(rsp_5)
 
-	code := binary.BigEndian.Uint32(codeBuffer)
-	fmt.Printf("%06d\n", code)
+	TRUNCATED_RESPONSE := byte(0x76)
+
+	fmt.Printf("code is in: % 0x\n", creds_tlvs[TRUNCATED_RESPONSE].value)
+
+	code := parse_truncated(creds_tlvs[TRUNCATED_RESPONSE].value[1:])
+
+
+	//code := binary.BigEndian.Uint32(codeBuffer)
+	fmt.Printf("code: %06d\n", code)
 
 	println("hello world")
 	// Create Udev and Monitor
@@ -366,9 +369,6 @@ func main() {
 
 				// Disconnect (when needed)
 				defer card.Disconnect(scard.LeaveCard)
-				var cmd_select = []byte{0x00, 0xa4, 0x04, 0x00, 0x0A, 0xA0,
-					0x00, 0x00, 0x00, 0x62, 0x03, 0x01, 0x0C, 0x06, 0x01}
-				rsp, err := card.Transmit(cmd_select)
 				if err != nil {
 					fmt.Println("Error Transmit:", err)
 					return
