@@ -1,0 +1,10 @@
+# file needs to be in /home/myuser/.config/systemd/user/yubi-oath-vpn.service
+[Unit]
+Description=Yubiky Monitor
+
+[Service]
+Type=simple
+ExecStart=%h/Apps/yubi-oath-vpn -c $VPN_NAME # use the actual VPN name here
+
+[Install]
+WantedBy=default.target
