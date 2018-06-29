@@ -16,6 +16,6 @@ RUN go get -t "github.com/gotk3/gotk3/gdk"
 
 COPY . .
 
-RUN go install -v ./...
+RUN go build -ldflags="-s -w" -v ./...
 
-RUN ls -l /go/bin/app
+RUN ls -lh app
