@@ -12,7 +12,7 @@ jobs:
           paths:
               - /tmp/docker_pushed
       - run: |
-          if [ ! -d /tmp/docker_pushed ]; then
+          if [ ! -f /tmp/docker_pushed ]; then
             docker login -u $DOCKER_USER -p $DOCKER_PASS
             docker build -f Dockerfile.builder -t menedev/yubi-oath-vpn-builder:latest .
             docker push menedev/yubi-oath-vpn-builder:latest
@@ -55,7 +55,13 @@ jobs:
       - run: go build -ldflags="-s -w -X main.Version=$BUILD_VERSION -X main.BuildDate=$BUILD_DATE" -v ./...
       - run: mkdir release
       - run: mv yubi-oath-vpn release/yubi-oath-vpn-linux-x64
-      - run: ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "0.1.0" release/
+      - run: tag=$(semantics --output-tag --dry-run)
+      - run: |
+          if [ -z "$tag" ]; then
+            ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "$tag" release/
+          else
+            echo "not releasing, no new version"
+          fi
 
 workflows:
   version: 2
