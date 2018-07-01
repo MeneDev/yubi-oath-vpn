@@ -6,6 +6,11 @@ Simply insert your Yubikey to an USB-slot and connect to your 2FA-VPN.
 
 Will start the program and connect as soon as the Yubikey is inserted (and not already connected)
 
+### Autostart via systemd
+
+* Copy yubi-oath-vpn binary to $HOMR/Apps/yubi-oath-vpn, make sure it's executable
+* Adjust and copy the file yubi-oath-vpn.service to $HOME/.config/systemd/user/yubi-oath-vpn.service
+
 ## Limitations
  * The Yubikey must have a password
  * nmcli is required to bring up the VPN (so Linux only?)
