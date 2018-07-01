@@ -22,7 +22,7 @@ jobs:
           key: builder-{{ checksum "Dockerfile.builder" }}
           paths:
               - /tmp/docker_pushed
-  build_and_release:
+  build:
     docker:
       - image: menedev/yubi-oath-vpn-builder:latest
       
@@ -55,19 +55,43 @@ jobs:
       - run: go build -ldflags="-s -w -X main.Version=$BUILD_VERSION -X main.BuildDate=$BUILD_DATE" -v ./...
       - run: mkdir release
       - run: mv yubi-oath-vpn release/yubi-oath-vpn-linux-x64
+      - persist_to_workspace:
+          root: .
+          paths:
+            - release
+  release:
+    docker:
+      - image: menedev/yubi-oath-vpn-builder:latest
+    steps:
+      - checkout
+      - run: echo "tag is $(semantics --output-tag --dry-run)"
       - run: tag=$(semantics --output-tag --dry-run)
+      - run: echo "tag $tag"
+      - attach_workspace:
+          at: /tmp/workspace
+      - run: ls
+      - run: echo "tag is $(semantics --output-tag --dry-run)"
       - run: |
-          if [ -z "$tag" ]; then
-            ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "$tag" release/
+          tag="$(semantics --output-tag --dry-run)"
+          echo "release with tag $tag"
+          if [ ! -z "$tag" ]; then
+            ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "$tag" /tmp/workspace/release/
           else
             echo "not releasing, no new version"
           fi
-
+      
 workflows:
   version: 2
   create_builder_and_release:
     jobs:
       - create_builder
-      - build_and_release:
+      - build:
           requires:
               - create_builder
+      - release:
+          requires:
+              - build
+          filters:
+            branches:
+              only:
+                - master
