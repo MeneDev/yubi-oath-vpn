@@ -1,21 +1,21 @@
-FROM golang:1.10.3
-WORKDIR /go/src/app
+FROM menedev/yubi-oath-vpn-builder:latest
 
-RUN apt-get update
-RUN apt-get install libudev-dev
-RUN go get -t "github.com/jochenvg/go-udev"
-RUN apt-get install -y libpcsclite-dev
-RUN go get -t "github.com/ebfe/scard"
-RUN apt-get install -y libgtk-3-dev
-RUN go get -t "github.com/gotk3/gotk3/gtk"
-RUN go get -t "golang.org/x/crypto/pbkdf2"
-RUN apt-get install -y libusb-1.0-0-dev
-RUN go get -t "github.com/google/gousb"
-RUN go get -t "github.com/jessevdk/go-flags"
-RUN go get -t "github.com/gotk3/gotk3/gdk"
-
+RUN mkdir -p /go/src/github.com/MeneDev/yubi-oath-vpn
+WORKDIR /go/src/github.com/MeneDev/yubi-oath-vpn
 COPY . .
+
+ENV GOCACHE=/tmp/go/cache
+
+RUN mkdir -p $GOCACHE
+
+RUN find $GOCACHE
+RUN /go/bin/dep ensure
+RUN find $GOCACHE
+RUN find vendor/ -maxdepth 3 -mindepth 3 -exec bash -c 'cd $0 && go build  ./...' {} \;
+RUN find $GOCACHE
 
 RUN go build -ldflags="-s -w" -v ./...
 
-RUN ls -lh app
+
+#RUN find
+
