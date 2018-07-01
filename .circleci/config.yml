@@ -12,32 +12,30 @@ jobs:
       - DEP_VERSION: 0.4.1
       - GITHUB_USER: MeneDev
       - GITHUB_PROJECT: yubi-oath-vpn
+      - GOCACHE: "/tmp/go/cache"
     steps:
       - checkout
       - restore_cache:
-          key: gopkg-{{ .Branch }}-{{ checksum "Gopkg.lock" }}
+          key: gopkg-{{ checksum "Gopkg.lock" }}
           paths:
               - /go/src/github.com/MeneDev/yubi-oath-vpn/vendor
-
+              - /tmp/go/cache
       - run:
-          name: Download Libraries
+          name: Download and build libraries
           command: |
             if [ ! -d /go/src/github.com/MeneDev/yubi-oath-vpn/vendor ]; then
-                curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o /go/bin/dep
-                chmod +x /go/bin/dep
                 /go/bin/dep ensure
+                find vendor/ -maxdepth 3 -mindepth 3 -exec bash -c 'cd $0 && go build  ./...' {} \;
             fi
       - save_cache:
-          key: gopkg-{{ .Branch }}-{{ checksum "Gopkg.lock" }}
+          key: gopkg-{{ checksum "Gopkg.lock" }}
           paths:
               - /go/src/github.com/MeneDev/yubi-oath-vpn/vendor
+              - /tmp/go/cache
 
-      # specify any bash command here prefixed with `run: `
-      # - run: go get -u github.com/stevenmatthewt/semantics
       - run: go build -ldflags="-s -w -X main.Version=$BUILD_VERSION -X main.BuildDate=$BUILD_DATE" -v ./...
-      - run: find .
       - run: mkdir release
-      - run: mv yubi-oath-vpn release/yubi-oath-vpn
+      - run: mv yubi-oath-vpn release/yubi-oath-vpn-linux-x64
       - run: ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "0.1.0" release/
 
   #     - store_artifacts:
