@@ -3,7 +3,26 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  build:
+  create_builder:
+    machine: true
+    steps:
+      - checkout
+      - restore_cache:
+          key: builder-{{ checksum "Dockerfile.builder" }}
+          paths:
+              - /tmp/docker_pushed
+      - run: |
+          if [ ! -d /tmp/docker_pushed ]; then
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+            docker build -f Dockerfile.builder -t menedev/yubi-oath-vpn-builder:latest .
+            docker push menedev/yubi-oath-vpn-builder:latest
+            echo 1 > /tmp/docker_pushed
+          fi
+      - save_cache:
+          key: builder-{{ checksum "Dockerfile.builder" }}
+          paths:
+              - /tmp/docker_pushed
+  build_and_release:
     docker:
       - image: menedev/yubi-oath-vpn-builder:latest
       
@@ -38,11 +57,11 @@ jobs:
       - run: mv yubi-oath-vpn release/yubi-oath-vpn-linux-x64
       - run: ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "0.1.0" release/
 
-  #     - store_artifacts:
-  #         path: ./app
-  #         destination: yubi-oath-vpn
-
-  # release:
-  #   docker:
-  #     - image: circleci/golang:1.10.3
-    
+workflows:
+  version: 2
+  create_builder_and_release:
+    jobs:
+      - create_builder
+      - build_and_release:
+          requires:
+              - create_builder
