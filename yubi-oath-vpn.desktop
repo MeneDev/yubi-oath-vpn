@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=yubi-oath-vpn monitor
+Comment=yubi-oath-vpn monitor startup script
+Exec=<path>/yubi-oath-vpn --connection <connection name>
+StartupNotify=false
+Terminal=false
