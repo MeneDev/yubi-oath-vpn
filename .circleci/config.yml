@@ -53,7 +53,11 @@ jobs:
 
       - run:
           name: Build project
-          command: gox -ldflags="-s -w -X main.Version=$BUILD_VERSION -X main.BuildDate=$BUILD_DATE" -os="linux" -arch="amd64" -output "release/yubi-oath-vpn-{{.OS}}_{{.Arch}}"
+          command: |
+            tag="$(semantics --output-tag --dry-run)"
+            gox -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -os="linux" -arch="amd64" -output "release/yubi-oath-vpn-{{.OS}}_{{.Arch}}"
+      - run: release/yubi-oath-vpn-linux_amd64 --version
+
       - persist_to_workspace:
           root: .
           paths:

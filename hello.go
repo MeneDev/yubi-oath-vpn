@@ -86,6 +86,12 @@ type YubiKey struct {
 	tlvs []Tlv
 }
 
+type AID []byte
+
+var	AID_OTP = AID{0xA0, 0x00, 0x00, 0x05, 0x27, 0x20, 0x01}
+var	AID_OATH = AID{0xa0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01}
+var	AID_MGR = AID{0xa0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17}
+
 func (e YubiKeyError) Error() string {
 	return fmt.Sprint(e)
 }
@@ -117,7 +123,7 @@ func (self YubiKey) send_apdu(cl byte, ins byte, p1 byte, p2 byte, data []byte) 
 }
 var GP_INS_SELECT byte = 0xA4
 
-func (self YubiKey) selectAid(aid []byte) ([]byte, error) {
+func (self YubiKey) selectAid(aid AID) ([]byte, error) {
 	resp, err := self.send_apdu(0, GP_INS_SELECT, 0x04, 0, aid)
 	return resp, err
 }
@@ -306,11 +312,6 @@ func getCode() (string, error) {
 	defer card.Disconnect(scard.LeaveCard)
 
 	yubikey := YubiKey{card: *card}
-
-	AID_OTP := []byte{0xA0, 0x00, 0x00, 0x05, 0x27, 0x20, 0x01}
-	AID_OATH := []byte{0xa0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01}
-	AID_MGR := []byte{0xa0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17}
-
 
 	rsp, err := yubikey.selectAid(AID_OTP)
 	if err != nil {
@@ -572,14 +573,29 @@ type Options struct {
 	ConnectionName string `required:"yes" short:"c" long:"connection" description:"The name of the connection as shown by 'nmcli c show'"`
 }
 
+type MetaOptions struct {
+	ShowVersion bool `required:"no" short:"v" long:"version" description:"Show version and exit"`
+}
+
 func main() {
+	var metaOpts MetaOptions
+
+	args, err := flags.Parse(&metaOpts)
+	if err != nil {
+		panic(err)
+	}
+
+	if metaOpts.ShowVersion {
+		showVersion()
+		os.Exit(0)
+	}
+
 	var opts Options
 
-	args, err := flags.Parse(&opts)
+	args, err = flags.Parse(&opts)
 
 	if err != nil {
 		panic(err)
-		panic(args)
 	}
 
 	fmt.Println(args)
@@ -637,4 +653,18 @@ func main() {
 		wg.Done()
 	}()
 	wg.Wait()
+}
+
+
+var Version string = "<unknown>"
+var BuildDate string = "<unknown>"
+var BuildNumber string = "<unknown>"
+var BuildCommit string = "<unknown>"
+
+func showVersion() {
+	format := "%-13s%s\n"
+	fmt.Printf(format, "Version:", Version)
+	fmt.Printf(format, "BuildDate:", BuildDate)
+	fmt.Printf(format, "BuildNumber:", BuildNumber)
+	fmt.Printf(format, "BuildCommit:", BuildCommit)
 }
