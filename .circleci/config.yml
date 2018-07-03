@@ -8,18 +8,18 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: builder-{{ checksum "Dockerfile.builder" }}
+          key: builder-{{ checksum "builder/Dockerfile" }}
           paths:
               - /tmp/docker_pushed
       - run: |
           if [ ! -f /tmp/docker_pushed ]; then
             docker login -u $DOCKER_USER -p $DOCKER_PASS
-            docker build -f Dockerfile.builder -t menedev/yubi-oath-vpn-builder:latest .
+            docker build -f builder/Dockerfile -t menedev/yubi-oath-vpn-builder:latest .
             docker push menedev/yubi-oath-vpn-builder:latest
             echo 1 > /tmp/docker_pushed
           fi
       - save_cache:
-          key: builder-{{ checksum "Dockerfile.builder" }}
+          key: builder-{{ checksum "builder/Dockerfile" }}
           paths:
               - /tmp/docker_pushed
   build:
