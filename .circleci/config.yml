@@ -1,6 +1,3 @@
-# Golang CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
   create_builder:
@@ -11,13 +8,15 @@ jobs:
           key: builder-{{ checksum "builder/Dockerfile" }}
           paths:
               - /tmp/docker_pushed
-      - run: |
-          if [ ! -f /tmp/docker_pushed ]; then
-            docker login -u $DOCKER_USER -p $DOCKER_PASS
-            docker build -f builder/Dockerfile -t menedev/yubi-oath-vpn-builder:latest .
-            docker push menedev/yubi-oath-vpn-builder:latest
-            echo 1 > /tmp/docker_pushed
-          fi
+      - run:
+          name: Build and push image if builder/Dockerfile has changed
+          command:  |
+            if [ ! -f /tmp/docker_pushed ]; then
+              docker login -u $DOCKER_USER -p $DOCKER_PASS
+              docker build -f builder/Dockerfile -t menedev/yubi-oath-vpn-builder:latest .
+              docker push menedev/yubi-oath-vpn-builder:latest
+              echo 1 > /tmp/docker_pushed
+            fi
       - save_cache:
           key: builder-{{ checksum "builder/Dockerfile" }}
           paths:
@@ -42,19 +41,19 @@ jobs:
       - run:
           name: Download and build libraries
           command: |
-            if [ ! -d /go/src/github.com/MeneDev/yubi-oath-vpn/vendor ]; then
+            if [ ! -d ./vendor ]; then
                 /go/bin/dep ensure
                 find vendor/ -maxdepth 3 -mindepth 3 -exec bash -c 'cd $0 && go build  ./...' {} \;
             fi
       - save_cache:
           key: gopkg-{{ checksum "Gopkg.lock" }}
           paths:
-              - /go/src/github.com/MeneDev/yubi-oath-vpn/vendor
+              - ./vendor
               - /tmp/go/cache
 
-      - run: go build -ldflags="-s -w -X main.Version=$BUILD_VERSION -X main.BuildDate=$BUILD_DATE" -v ./...
-      - run: mkdir release
-      - run: mv yubi-oath-vpn release/yubi-oath-vpn-linux-x64
+      - run:
+          name: Build project
+          command: gox -ldflags="-s -w -X main.Version=$BUILD_VERSION -X main.BuildDate=$BUILD_DATE" -os="linux" -arch="amd64" -output "release/yubi-oath-vpn-{{.OS}}_{{.Arch}}"
       - persist_to_workspace:
           root: .
           paths:
@@ -64,21 +63,17 @@ jobs:
       - image: menedev/yubi-oath-vpn-builder:latest
     steps:
       - checkout
-      - run: echo "tag is $(semantics --output-tag --dry-run)"
-      - run: tag=$(semantics --output-tag --dry-run)
-      - run: echo "tag $tag"
       - attach_workspace:
           at: /tmp/workspace
-      - run: ls
-      - run: echo "tag is $(semantics --output-tag --dry-run)"
-      - run: |
-          tag="$(semantics --output-tag --dry-run)"
-          echo "release with tag $tag"
-          if [ ! -z "$tag" ]; then
-            ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "$tag" /tmp/workspace/release/
-          else
-            echo "not releasing, no new version"
-          fi
+      - run:
+          name: Release new version if applicable
+          command: |
+            tag="$(semantics --output-tag --dry-run)"
+            if [ ! -z "$tag" ]; then
+              ghr -t "$GITHUB_TOKEN" -u "$CIRCLE_PROJECT_USERNAME" -r "$CIRCLE_PROJECT_REPONAME" --replace "$tag" /tmp/workspace/release/
+            else
+              echo "not releasing, no new version"
+            fi
       
 workflows:
   version: 2
