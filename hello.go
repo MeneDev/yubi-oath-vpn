@@ -297,8 +297,15 @@ func getCode() (string, error) {
 		return "", err
 	}
 
-	// Use the first reader
-	reader := readers[0]
+	// Use the first reader with "yubi" in its name
+	var reader string
+	for _, r := range readers {
+		if strings.Contains(strings.ToLower(r), "yubi") {
+			reader = r
+			break
+		}
+	}
+
 	fmt.Println("Using reader:", reader)
 
 	// Connect to the card
@@ -571,28 +578,17 @@ func connectIfNotConnectedAndYubikeyPresent(connectionName string, usbChecker fu
 
 type Options struct {
 	ConnectionName string `required:"yes" short:"c" long:"connection" description:"The name of the connection as shown by 'nmcli c show'"`
-}
-
-type MetaOptions struct {
 	ShowVersion bool `required:"no" short:"v" long:"version" description:"Show version and exit"`
 }
 
 func main() {
-	var metaOpts MetaOptions
+	var opts Options
 
-	args, err := flags.Parse(&metaOpts)
-	if err != nil {
-		panic(err)
-	}
-
-	if metaOpts.ShowVersion {
+	args, err := flags.Parse(&opts)
+	if opts.ShowVersion {
 		showVersion()
 		os.Exit(0)
 	}
-
-	var opts Options
-
-	args, err = flags.Parse(&opts)
 
 	if err != nil {
 		panic(err)
