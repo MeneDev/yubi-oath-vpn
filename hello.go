@@ -584,14 +584,15 @@ type Options struct {
 func main() {
 	var opts Options
 
-	args, err := flags.Parse(&opts)
+	args, err := flags.NewParser(&opts, flags.HelpFlag | flags.PassDoubleDash).Parse()
 	if opts.ShowVersion {
 		showVersion()
 		os.Exit(0)
 	}
 
 	if err != nil {
-		panic(err)
+		fmt.Printf("%s", err)
+		os.Exit(1)
 	}
 
 	fmt.Println(args)
