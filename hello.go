@@ -195,13 +195,25 @@ func askPassword(additionalMessage string) (string, error) {
 	// Initialize GTK without parsing any command line arguments.
 	gtk.Init(nil)
 
-	// Create a new toplevel window, set its title, and connect it to the
-	// "destroy" signal to exit the GTK main loop when it is destroyed.
-	win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Fatal("Unable to create window:", err)
-	}
-	win.SetTitle("Yubikey Password Required")
+	builder, err := gtk.BuilderNewFromFile("/home/marndt/go/src/github.com/MeneDev/yubi-oath-vpn/ConnectDialog.gtk")
+
+	objDlg, err := builder.GetObject("Dialog")
+	win := objDlg.(*gtk.Window)
+
+	objPassword, err := builder.GetObject("txtPassword")
+	txtPassword := objPassword.(*gtk.Entry)
+	txtPassword.SetInputPurpose(gtk.INPUT_PURPOSE_PASSWORD)
+	txtPassword.SetVisibility(false)
+
+	objConnect, err := builder.GetObject("btnConnect")
+	btnConnect := objConnect.(*gtk.Button)
+
+	objConnecting, err := builder.GetObject("lblConnecting")
+	lblConnect := objConnecting.(*gtk.Label)
+	objConnectingSpinner, err := builder.GetObject("spnConnecting")
+	spnConnecting := objConnectingSpinner.(*gtk.Spinner)
+	spnConnecting.Stop()
+	lblConnect.SetLabel("")
 	win.Connect("destroy", func() {
 		gtk.MainQuit()
 		err = ErrorUserCancled
@@ -216,61 +228,24 @@ func askPassword(additionalMessage string) (string, error) {
 		}
 	})
 
-	win.SetPosition(gtk.WIN_POS_CENTER)
-
-	input, err := gtk.EntryNew()
-
-	input.SetInputPurpose(gtk.INPUT_PURPOSE_PASSWORD)
-	input.SetVisibility(false)
-
-	button, err := gtk.ButtonNew()
-	button.SetLabel("OK")
-	grid, err := gtk.GridNew()
-	if err != nil {
-		log.Fatal("Unable to create grid:", err)
-		if err != nil {
-			return "", err
-		}
-	}
-	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-
-	if len(additionalMessage) > 0 {
-		message, err := gtk.LabelNew(additionalMessage)
-		if err != nil {
-			return "", err
-		}
-
-		message.SetMarginBottom(10)
-		grid.Add(message)
-	}
-
-	grid.Add(input)
-	grid.Add(button)
 
 	setPassword := func() {
-		text, e := input.GetText()
-
-		win.Destroy()
-
+		text, e := txtPassword.GetText()
 		password = text
 		err = e
+
+		spnConnecting.Start()
+		lblConnect.SetLabel("Connecting...")
 	}
 
-	button.Connect("clicked", setPassword)
-	input.Connect("key-press-event", func(win *gtk.Entry, ev *gdk.Event) {
+	btnConnect.Connect("clicked", setPassword)
+	txtPassword.Connect("key-press-event", func(win *gtk.Entry, ev *gdk.Event) {
 		keyEvent := &gdk.EventKey{ev}
 
 		if keyEvent.KeyVal() == gdk.KEY_Return {
 			setPassword()
 		}
 	})
-
-	input.SetMarginBottom(10)
-	win.Add(grid)
-	grid.SetMarginBottom(10)
-	grid.SetMarginTop(10)
-	grid.SetMarginEnd(10)
-	grid.SetMarginStart(10)
 
 	win.ShowAll()
 
@@ -583,6 +558,8 @@ type Options struct {
 
 func main() {
 	var opts Options
+
+	askPassword("Message")
 
 	args, err := flags.NewParser(&opts, flags.HelpFlag | flags.PassDoubleDash).Parse()
 	if opts.ShowVersion {
