@@ -1,84 +1,82 @@
 package main
 
 import (
-	"sync"
-	"fmt"
-	"time"
-	"github.com/jochenvg/go-udev"
-	"github.com/ebfe/scard"
 	"context"
-	"encoding/binary"
-	"github.com/gotk3/gotk3/gtk"
-	"log"
-	"github.com/gotk3/gotk3/gdk"
-	"reflect"
-	"golang.org/x/crypto/pbkdf2"
-	"crypto/sha1"
 	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/binary"
+	"fmt"
+	"github.com/MeneDev/yubi-oath-vpn/gui"
+	"github.com/MeneDev/yubi-oath-vpn/yubierror"
+	"github.com/ebfe/scard"
+	"github.com/google/gousb"
+	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/gtk"
+	"github.com/jessevdk/go-flags"
+	"github.com/jochenvg/go-udev"
+	"golang.org/x/crypto/pbkdf2"
+	"io"
+	"log"
 	"math/rand"
 	"net"
-	"strings"
-	"github.com/google/gousb"
-	"os/exec"
-	"io"
 	"os"
-	"github.com/jessevdk/go-flags"
+	"os/exec"
+	"reflect"
+	"strings"
+	"sync"
+	"time"
 )
 
 type TAG byte
+
 const (
-	NAME TAG = 0x71
-	NAME_LIST TAG = 0x72
-	KEY TAG = 0x73
-	CHALLENGE TAG = 0x74
-	RESPONSE TAG = 0x75
+	NAME               TAG = 0x71
+	NAME_LIST          TAG = 0x72
+	KEY                TAG = 0x73
+	CHALLENGE          TAG = 0x74
+	RESPONSE           TAG = 0x75
 	TRUNCATED_RESPONSE TAG = 0x76
-	NO_RESPONSE TAG = 0x77
-	PROPERTY TAG = 0x78
-	VERSION TAG = 0x79
-	IMF TAG = 0x7a
-	ALGORITHM TAG = 0x7b
-	TOUCH TAG = 0x7c
+	NO_RESPONSE        TAG = 0x77
+	PROPERTY           TAG = 0x78
+	VERSION            TAG = 0x79
+	IMF                TAG = 0x7a
+	ALGORITHM          TAG = 0x7b
+	TOUCH              TAG = 0x7c
 )
 
 type ALGO byte
+
 const (
-	SHA1 ALGO = 0x01
+	SHA1   ALGO = 0x01
 	SHA256 ALGO = 0x02
 	SHA512 ALGO = 0x03
 )
 
 type PROPERTIES byte
+
 const (
 	REQUIRE_TOUCH PROPERTIES = 0x02
 )
 
 type OATH_TYPE byte
+
 const (
 	HOTP OATH_TYPE = 0x10
 	TOTP OATH_TYPE = 0x20
 )
 
 type INS byte
-const (
-	PUT INS = 0x01
-	DELETE INS = 0x02
-	SET_CODE INS = 0x03
-	RESET INS = 0x04
-	LIST byte = 0xa1
-	CALCULATE INS = 0xa2
-	VALIDATE INS = 0xa3
-	CALCULATE_ALL INS = 0xa4
-	SEND_REMAINING INS = 0xa5
-)
-
-type YubiKeyError uint32
 
 const (
-	_ = iota
-	ErrorChkWrong YubiKeyError = iota
-	ErrorWrongPassword YubiKeyError = iota
-	ErrorUserCancled YubiKeyError = iota
+	PUT            INS  = 0x01
+	DELETE         INS  = 0x02
+	SET_CODE       INS  = 0x03
+	RESET          INS  = 0x04
+	LIST           byte = 0xa1
+	CALCULATE      INS  = 0xa2
+	VALIDATE       INS  = 0xa3
+	CALCULATE_ALL  INS  = 0xa4
+	SEND_REMAINING INS  = 0xa5
 )
 
 type YubiKey struct {
@@ -88,17 +86,13 @@ type YubiKey struct {
 
 type AID []byte
 
-var	AID_OTP = AID{0xA0, 0x00, 0x00, 0x05, 0x27, 0x20, 0x01}
-var	AID_OATH = AID{0xa0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01}
-var	AID_MGR = AID{0xa0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17}
-
-func (e YubiKeyError) Error() string {
-	return fmt.Sprint(e)
-}
+var AID_OTP = AID{0xA0, 0x00, 0x00, 0x05, 0x27, 0x20, 0x01}
+var AID_OATH = AID{0xa0, 0x00, 0x00, 0x05, 0x27, 0x21, 0x01}
+var AID_MGR = AID{0xa0, 0x00, 0x00, 0x05, 0x27, 0x47, 0x11, 0x17}
 
 func (self YubiKey) send_apdu(cl byte, ins byte, p1 byte, p2 byte, data []byte) ([]byte, error) {
 	card := self.card
-	header := []byte {cl, ins, p1, p2, byte(len(data))}
+	header := []byte{cl, ins, p1, p2, byte(len(data))}
 	telegram := append(header, data...)
 
 	fmt.Printf("sending: % 0x\n", telegram)
@@ -111,16 +105,17 @@ func (self YubiKey) send_apdu(cl byte, ins byte, p1 byte, p2 byte, data []byte) 
 
 	fmt.Printf("received %d bytes: % 0x\n", len(rsp), rsp)
 
-	chk_buffer := rsp[len(rsp) - 2:]
+	chk_buffer := rsp[len(rsp)-2:]
 
 	chk := binary.BigEndian.Uint16(chk_buffer)
-	if (chk != 0x9000) {
-		return rsp, ErrorChkWrong
+	if chk != 0x9000 {
+		return rsp, yubierror.ErrorChkWrong
 	}
 
-	rsp = rsp[:len(rsp) - 2]
+	rsp = rsp[:len(rsp)-2]
 	return rsp, err
 }
+
 var GP_INS_SELECT byte = 0xA4
 
 func (self YubiKey) selectAid(aid AID) ([]byte, error) {
@@ -132,7 +127,7 @@ var SLOT_DEVICE_SERIAL byte = 0x10
 var OTP_INS_YK2_REQ byte = 0x01
 
 func (self YubiKey) readSerial() (uint32, error) {
-	resp, err := self.send_apdu(0, OTP_INS_YK2_REQ, SLOT_DEVICE_SERIAL, 0, []byte {})
+	resp, err := self.send_apdu(0, OTP_INS_YK2_REQ, SLOT_DEVICE_SERIAL, 0, []byte{})
 	if err != nil {
 		return 0, err
 	}
@@ -141,7 +136,7 @@ func (self YubiKey) readSerial() (uint32, error) {
 }
 
 type Tlv struct {
-	tag byte
+	tag   byte
 	value []byte
 }
 
@@ -192,69 +187,78 @@ func askPassword(additionalMessage string) (string, error) {
 	password := ""
 	var err error
 
-	// Initialize GTK without parsing any command line arguments.
-	gtk.Init(nil)
+	var wg sync.WaitGroup
+	wg.Add(1)
 
-	builder, err := gtk.BuilderNewFromFile("/home/marndt/go/src/github.com/MeneDev/yubi-oath-vpn/ConnectDialog.gtk")
+	go func() {
+		defer wg.Done()
 
-	objDlg, err := builder.GetObject("Dialog")
-	win := objDlg.(*gtk.Window)
+		// Initialize GTK without parsing any command line arguments.
+		gtk.Init(nil)
 
-	objPassword, err := builder.GetObject("txtPassword")
-	txtPassword := objPassword.(*gtk.Entry)
-	txtPassword.SetInputPurpose(gtk.INPUT_PURPOSE_PASSWORD)
-	txtPassword.SetVisibility(false)
+		builder, err := gtk.BuilderNewFromFile("/home/marndt/go/src/github.com/MeneDev/yubi-oath-vpn/ConnectDialog.gtk")
 
-	objConnect, err := builder.GetObject("btnConnect")
-	btnConnect := objConnect.(*gtk.Button)
+		objDlg, err := builder.GetObject("Dialog")
+		win := objDlg.(*gtk.Window)
 
-	objConnecting, err := builder.GetObject("lblConnecting")
-	lblConnect := objConnecting.(*gtk.Label)
-	objConnectingSpinner, err := builder.GetObject("spnConnecting")
-	spnConnecting := objConnectingSpinner.(*gtk.Spinner)
-	spnConnecting.Stop()
-	lblConnect.SetLabel("")
-	win.Connect("destroy", func() {
-		gtk.MainQuit()
-		err = ErrorUserCancled
-	})
+		objPassword, err := builder.GetObject("txtPassword")
+		txtPassword := objPassword.(*gtk.Entry)
+		txtPassword.SetInputPurpose(gtk.INPUT_PURPOSE_PASSWORD)
+		txtPassword.SetVisibility(false)
 
-	win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
-		keyEvent := &gdk.EventKey{ev}
+		objConnect, err := builder.GetObject("btnConnect")
+		btnConnect := objConnect.(*gtk.Button)
 
-		if keyEvent.KeyVal() == gdk.KEY_Escape {
-			err = ErrorUserCancled
-			win.Destroy()
+		objConnecting, err := builder.GetObject("lblConnecting")
+		lblConnect := objConnecting.(*gtk.Label)
+		objConnectingSpinner, err := builder.GetObject("spnConnecting")
+		spnConnecting := objConnectingSpinner.(*gtk.Spinner)
+		spnConnecting.Stop()
+		lblConnect.SetLabel("")
+		win.Connect("destroy", func() {
+			gtk.MainQuit()
+			err = yubierror.ErrorUserCancled
+		})
+
+		win.Connect("key-press-event", func(win *gtk.Window, ev *gdk.Event) {
+			keyEvent := &gdk.EventKey{ev}
+
+			if keyEvent.KeyVal() == gdk.KEY_Escape {
+				err = yubierror.ErrorUserCancled
+				win.Destroy()
+			}
+		})
+
+		setPassword := func() {
+			text, e := txtPassword.GetText()
+			password = text
+			err = e
+
+			spnConnecting.Start()
+			lblConnect.SetLabel("Connecting...")
+			wg.Done()
 		}
-	})
 
+		btnConnect.Connect("clicked", setPassword)
+		txtPassword.Connect("key-press-event", func(win *gtk.Entry, ev *gdk.Event) {
+			keyEvent := &gdk.EventKey{ev}
 
-	setPassword := func() {
-		text, e := txtPassword.GetText()
-		password = text
-		err = e
+			if keyEvent.KeyVal() == gdk.KEY_Return {
+				setPassword()
+			}
+		})
 
-		spnConnecting.Start()
-		lblConnect.SetLabel("Connecting...")
-	}
+		win.ShowAll()
 
-	btnConnect.Connect("clicked", setPassword)
-	txtPassword.Connect("key-press-event", func(win *gtk.Entry, ev *gdk.Event) {
-		keyEvent := &gdk.EventKey{ev}
+		gtk.Main()
+	}()
 
-		if keyEvent.KeyVal() == gdk.KEY_Return {
-			setPassword()
-		}
-	})
-
-	win.ShowAll()
-
-	gtk.Main()
+	wg.Wait()
 
 	return password, err
 }
 
-func getCode() (string, error) {
+func getCode(passwordAsker PasswordAsker) (string, error) {
 	// Establish a PC/SC context
 	scardCtx, err := scard.EstablishContext()
 	if err != nil {
@@ -347,7 +351,7 @@ func getCode() (string, error) {
 	fmt.Printf("algorithm: % 0x\n", tlvs[OATH_TAG_ALGORITHM])
 	fmt.Printf("version: % 0x\n", tlvs[OATH_TAG_VERSION])
 
-	pwd, err := askPassword("")
+	pwd, _, err := passwordAsker("")
 	if err != nil {
 		return "", err
 	}
@@ -371,9 +375,9 @@ func getCode() (string, error) {
 	INS_VALIDATE := byte(0xa3)
 
 	verify_resp, err := yubikey.send_apdu(0, INS_VALIDATE, 0, 0, validate_data)
-	if err, ok := err.(YubiKeyError); ok && err == ErrorChkWrong {
-		if reflect.DeepEqual(verify_resp, []byte {0x6A, 0x80}) {
-			return "", ErrorWrongPassword
+	if err, ok := err.(yubierror.YubiKeyError); ok && err == yubierror.ErrorChkWrong {
+		if reflect.DeepEqual(verify_resp, []byte{0x6A, 0x80}) {
+			return "", yubierror.ErrorWrongPassword
 		}
 	}
 	if err != nil {
@@ -389,7 +393,7 @@ func getCode() (string, error) {
 	fmt.Printf("verification: % 0x\n", verification)
 	fmt.Printf("verification: % 0x\n", verify_tlvs[OATH_TAG_RESPONSE].value)
 
-	if (!reflect.DeepEqual(verification, verify_tlvs[OATH_TAG_RESPONSE].value)) {
+	if !reflect.DeepEqual(verification, verify_tlvs[OATH_TAG_RESPONSE].value) {
 		panic("Verification failed")
 	}
 
@@ -397,7 +401,7 @@ func getCode() (string, error) {
 
 	timeBuffer := make([]byte, 8)
 
-	binary.BigEndian.PutUint64(timeBuffer, uint64(time.Now().UTC().Unix() / 30))
+	binary.BigEndian.PutUint64(timeBuffer, uint64(time.Now().UTC().Unix()/30))
 
 	cmd_5 = append(cmd_5, timeBuffer...)
 
@@ -466,7 +470,7 @@ func _checkUsb(usbContext *gousb.Context) (bool, error) {
 	return found, err
 }
 
-func connect(connectionName string, codeProvider func() (string, error)) error {
+func connect(connectionName string, codeProvider func() (string, error), informFinishedConnecting func()) error {
 	code, err := codeProvider()
 	if err != nil {
 		return err
@@ -490,28 +494,40 @@ func connect(connectionName string, codeProvider func() (string, error)) error {
 		return err
 	}
 
-	io.WriteString(stdin, "vpn.secrets.password:" + code + "\n")
+	io.WriteString(stdin, "vpn.secrets.password:"+code+"\n")
 	stdin.Close()
 	println("start connecting via nmcli")
 	subProcess.Wait()
+	informFinishedConnecting()
 	println("finished connecting via nmcli")
 
 	return nil
 }
 
+type PasswordAsker func(additionalMessage string) (string, context.Context, error)
+
 type CodeProvider struct {
-	codeCache string
-	codeError error
+	codeCache                 string
+	codeError                 error
+	askPassword               PasswordAsker
+	_informFinishedConnecting func()
+	_setError                 func(err error)
 }
 
-func (self CodeProvider) Clear()  {
-	self.codeCache = ""
+func (c *CodeProvider) Clear() {
+	c.codeCache = ""
 }
-func (self CodeProvider) GetCode() (string, error) {
-	if len(self.codeCache) == 0 {
-		self.codeCache, self.codeError = getCode()
+func (c *CodeProvider) GetCode() (string, error) {
+	if len(c.codeCache) == 0 {
+		c.codeCache, c.codeError = getCode(c.askPassword)
 	}
-	return self.codeCache, self.codeError
+	return c.codeCache, c.codeError
+}
+func (c *CodeProvider) informFinishedConnecting() {
+	c._informFinishedConnecting()
+}
+func (c *CodeProvider) SetError(err error) {
+	c._setError(err)
 }
 
 func connectIfNotConnectedAndYubikeyPresent(connectionName string, usbChecker func() (bool, error), codeProvider CodeProvider) {
@@ -531,11 +547,14 @@ func connectIfNotConnectedAndYubikeyPresent(connectionName string, usbChecker fu
 		}
 
 		if !isConnected && isYubikeyPresent {
-			err = connect(connectionName, codeProvider.GetCode)
+			err = connect(connectionName, codeProvider.GetCode, func() {
+				codeProvider.informFinishedConnecting()
+			})
 
-			if err, ok := err.(YubiKeyError); ok {
-				if err == ErrorWrongPassword {
+			if err, ok := err.(yubierror.YubiKeyError); ok {
+				if err == yubierror.ErrorWrongPassword {
 					codeProvider.Clear()
+					codeProvider.SetError(yubierror.ErrorWrongPassword)
 					retry = true
 				}
 			}
@@ -553,15 +572,15 @@ func connectIfNotConnectedAndYubikeyPresent(connectionName string, usbChecker fu
 
 type Options struct {
 	ConnectionName string `required:"yes" short:"c" long:"connection" description:"The name of the connection as shown by 'nmcli c show'"`
-	ShowVersion bool `required:"no" short:"v" long:"version" description:"Show version and exit"`
+	ShowVersion    bool   `required:"no" short:"v" long:"version" description:"Show version and exit"`
 }
 
 func main() {
 	var opts Options
 
-	askPassword("Message")
+	//askPassword("Message")
 
-	args, err := flags.NewParser(&opts, flags.HelpFlag | flags.PassDoubleDash).Parse()
+	args, err := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash).Parse()
 	if opts.ShowVersion {
 		showVersion()
 		os.Exit(0)
@@ -575,7 +594,21 @@ func main() {
 	fmt.Println(args)
 	fmt.Println(opts)
 	fmt.Println(opts.ConnectionName)
-	codeProvider := CodeProvider{}
+
+	gtkGui := gui.GtkGui(context.TODO())
+	gtkGui.Init()
+
+	codeProvider := CodeProvider{
+		askPassword: func(additionalMessage string) (string, context.Context, error) {
+			return gtkGui.AskPassword(additionalMessage)
+		},
+		_informFinishedConnecting: func() {
+			gtkGui.InformFinishedConnecting()
+		},
+		_setError: func(err error) {
+			gtkGui.SetError(err)
+		},
+	}
 
 	usbContext := gousb.NewContext()
 	defer usbContext.Close()
@@ -593,8 +626,8 @@ func main() {
 
 	// Add filters to monitor
 	m.FilterAddMatchSubsystem("usbmisc")
-	m.FilterAddMatchTag("uaccess")
-	m.FilterAddMatchTag("seat")
+	//m.FilterAddMatchTag("uaccess")
+	//m.FilterAddMatchTag("seat")
 
 	// Create a context
 	ctx, cancel := context.WithCancel(context.Background())
@@ -609,6 +642,10 @@ func main() {
 		fmt.Println("Started listening on channel")
 		for d := range ch {
 			action := d.Action()
+			//subsystem := d.Subsystem()
+			//tags := d.Tags()
+			//println(subsystem)
+			//println(tags)
 			if action == "add" {
 				println("add event")
 				fmt.Println("Event:", d.Syspath(), d.Action())
@@ -628,7 +665,6 @@ func main() {
 	}()
 	wg.Wait()
 }
-
 
 var Version string = "<unknown>"
 var BuildDate string = "<unknown>"
