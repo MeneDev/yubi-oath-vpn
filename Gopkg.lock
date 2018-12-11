@@ -3,61 +3,85 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:e4016aefe64a6fccca80d9aad4f8275ee519894c4f79c6079d96d49b9c4173b8"
   name = "github.com/ebfe/scard"
   packages = ["."]
+  pruneopts = "UT"
   revision = "136eebbd7d749e6354ed1bb105b88f89c7d80b03"
 
 [[projects]]
   branch = "master"
+  digest = "1:52c015ac30995214fac512676480e61149e2f8a457c8061b75b8a2a447daaee6"
   name = "github.com/google/gousb"
   packages = ["."]
+  pruneopts = "UT"
   revision = "92967a7d1098e3bc2a1cd0fcb652ca3c331a4419"
 
 [[projects]]
   branch = "master"
+  digest = "1:82945edd935e58b085182b1dfbffeee208500da1f29940b1061493b4e94a57b4"
   name = "github.com/gotk3/gotk3"
   packages = [
     "cairo",
     "gdk",
     "glib",
     "gtk",
-    "pango"
+    "pango",
   ]
+  pruneopts = "UT"
   revision = "80205b7ba46b599a304c62e17b6d155bda664ccc"
 
 [[projects]]
+  digest = "1:a2cff208d4759f6ba1b1cd228587b0a1869f95f22542ec9cd17fff64430113c7"
   name = "github.com/jessevdk/go-flags"
   packages = ["."]
+  pruneopts = "UT"
   revision = "c6ca198ec95c841fdb89fc0de7496fed11ab854e"
   version = "v1.4.0"
 
 [[projects]]
   branch = "master"
+  digest = "1:312b66e73aa2bb084b7b7d6489fa386dd56b27d848ccb1288b7a0c5a3c9defdb"
   name = "github.com/jkeiser/iter"
   packages = ["."]
+  pruneopts = "UT"
   revision = "67b94d6149c6b2efe0fde15d36a50a7692c2da17"
 
 [[projects]]
   branch = "master"
+  digest = "1:4b57f0f5cbfc1d9ea2bce2f32eff6137fe19d14182732e395dfca7f85494ce83"
   name = "github.com/jochenvg/go-udev"
   packages = ["."]
+  pruneopts = "UT"
   revision = "d6b62d56d37b941d93a199f9cb6f0250636fd4ab"
 
 [[projects]]
   branch = "master"
+  digest = "1:f92f6956e4059f6a3efc14924d2dd58ba90da25cc57fe07ae3779ef2f5e0c5f2"
   name = "golang.org/x/crypto"
   packages = ["pbkdf2"]
+  pruneopts = "UT"
   revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
 
 [[projects]]
   branch = "master"
+  digest = "1:a3a6de39e290e48a117738abd07843fce514b32ba887044c1dd123030a60c108"
   name = "golang.org/x/sys"
   packages = ["unix"]
+  pruneopts = "UT"
   revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "36855013d63d16a4a2c97ac6550df3e5b7301073336597b8c2f68452fdeb819e"
+  input-imports = [
+    "github.com/ebfe/scard",
+    "github.com/google/gousb",
+    "github.com/gotk3/gotk3/gdk",
+    "github.com/gotk3/gotk3/gtk",
+    "github.com/jessevdk/go-flags",
+    "github.com/jochenvg/go-udev",
+    "golang.org/x/crypto/pbkdf2",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

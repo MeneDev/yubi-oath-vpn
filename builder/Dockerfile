@@ -10,7 +10,7 @@ RUN sudo apt-get update && sudo apt-get install -y \
 RUN go get -u github.com/tcnksm/ghr \
     && go get -u github.com/stevenmatthewt/semantics
 
-RUN curl -L -s https://github.com/golang/dep/releases/download/v0.4.1/dep-linux-amd64 -o /go/bin/dep \
+RUN curl -L -s https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64 -o /go/bin/dep \
     && chmod +x /go/bin/dep
 
 RUN mkdir -p /go/src/github.com/mitchellh/gox
