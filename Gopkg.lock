@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
+  name = "github.com/davecgh/go-spew"
+  packages = ["spew"]
+  pruneopts = "UT"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
+
+[[projects]]
   branch = "master"
   digest = "1:e4016aefe64a6fccca80d9aad4f8275ee519894c4f79c6079d96d49b9c4173b8"
   name = "github.com/ebfe/scard"
@@ -56,6 +64,38 @@
   revision = "d6b62d56d37b941d93a199f9cb6f0250636fd4ab"
 
 [[projects]]
+  digest = "1:17e2b99f622792fcc12942bfc0f9089d1532f6dfc40878b44ae145b458fbab30"
+  name = "github.com/looplab/fsm"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "84b5307469f859464403f80919467950a79de1b1"
+  version = "v0.1.0"
+
+[[projects]]
+  digest = "1:cf31692c14422fa27c83a05292eb5cbe0fb2775972e8f1f8446a71549bd8980b"
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
+  version = "v0.8.1"
+
+[[projects]]
+  digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
+  name = "github.com/pmezard/go-difflib"
+  packages = ["difflib"]
+  pruneopts = "UT"
+  revision = "792786c7400a136282c1664665ae0a8db921c6c2"
+  version = "v1.0.0"
+
+[[projects]]
+  digest = "1:972c2427413d41a1e06ca4897e8528e5a1622894050e2f527b38ddf0f343f759"
+  name = "github.com/stretchr/testify"
+  packages = ["assert"]
+  pruneopts = "UT"
+  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
+  version = "v1.3.0"
+
+[[projects]]
   branch = "master"
   digest = "1:f92f6956e4059f6a3efc14924d2dd58ba90da25cc57fe07ae3779ef2f5e0c5f2"
   name = "golang.org/x/crypto"
@@ -65,9 +105,13 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a3a6de39e290e48a117738abd07843fce514b32ba887044c1dd123030a60c108"
+  digest = "1:6edde08c09ee6df91604cb06838f2e713e1257aaeffbf85ade247c19c816f07f"
   name = "golang.org/x/sys"
-  packages = ["unix"]
+  packages = [
+    "unix",
+    "windows",
+    "windows/registry",
+  ]
   pruneopts = "UT"
   revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
 
@@ -78,10 +122,16 @@
     "github.com/ebfe/scard",
     "github.com/google/gousb",
     "github.com/gotk3/gotk3/gdk",
+    "github.com/gotk3/gotk3/glib",
     "github.com/gotk3/gotk3/gtk",
     "github.com/jessevdk/go-flags",
     "github.com/jochenvg/go-udev",
+    "github.com/looplab/fsm",
+    "github.com/pkg/errors",
+    "github.com/stretchr/testify/assert",
     "golang.org/x/crypto/pbkdf2",
+    "golang.org/x/sys/windows",
+    "golang.org/x/sys/windows/registry",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

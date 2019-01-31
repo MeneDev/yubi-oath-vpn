@@ -14,6 +14,7 @@ type Gui interface {
 	AskPassword(additionalMessage string) (string, context.Context, error)
 	InformFinishedConnecting()
 	SetError(err error)
+	Cancel()
 }
 
 type gtkGui struct {
@@ -23,6 +24,8 @@ type gtkGui struct {
 	win           *gtk.Window
 	lblConnect    *gtk.Label
 	spnConnecting *gtk.Spinner
+	btnConnect    *gtk.Button
+	txtPassword   *gtk.Entry
 }
 
 type passwordError struct {
@@ -164,7 +167,7 @@ func (g *gtkGui) Init() error {
                 <property name="position">0</property>
               </packing>
             </child>
-            <child>
+            <!-- <child>
               <object class="GtkButton">
                 <property name="label">gtk-cancel</property>
                 <property name="visible">True</property>
@@ -178,7 +181,7 @@ func (g *gtkGui) Init() error {
                 <property name="fill">True</property>
                 <property name="position">1</property>
               </packing>
-            </child>
+            </child> -->
           </object>
           <packing>
             <property name="expand">True</property>
@@ -202,6 +205,7 @@ func (g *gtkGui) Init() error {
 			return
 		}
 		win := objDlg.(*gtk.Window)
+		win.SetTitle("Yubi Monitor")
 
 		objPassword, err := builder.GetObject("txtPassword")
 		if err != nil {
@@ -259,6 +263,7 @@ func (g *gtkGui) Init() error {
 		})
 
 		setPassword := func() {
+			btnConnect.SetSensitive(false)
 			text, e := txtPassword.GetText()
 
 			spnConnecting.Start()
@@ -285,6 +290,8 @@ func (g *gtkGui) Init() error {
 		g.win = win
 		g.lblConnect = lblConnect
 		g.spnConnecting = spnConnecting
+		g.btnConnect = btnConnect
+		g.txtPassword = txtPassword
 
 		g.wgInit.Done()
 
@@ -324,7 +331,12 @@ func (g *gtkGui) AskPassword(additionalMessage string) (string, context.Context,
 
 func (g *gtkGui) show() {
 	glib.IdleAdd(func() {
+		g.txtPassword.SetText("")
+		g.btnConnect.SetSensitive(true)
 		g.win.ShowAll()
+		g.win.Present()
+		g.win.SetKeepAbove(true)
+		g.win.GrabFocus()
 	})
 }
 
@@ -340,6 +352,12 @@ func (g *gtkGui) SetError(err error) {
 	glib.IdleAdd(func() {
 		g.spnConnecting.Stop()
 		g.lblConnect.SetText(err.Error())
+	})
+}
+func (g *gtkGui) Cancel() {
+	glib.IdleAdd(func() {
+		g.spnConnecting.Stop()
+		g.win.Hide()
 	})
 }
 
