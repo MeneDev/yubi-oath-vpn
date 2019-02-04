@@ -8,7 +8,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	scardMon := scardmonitor.ScardMonNew(ctx)
+	scardMon, _ := scardmonitor.ScardMonNew(ctx)
 	scardStatusChan := scardMon.StatusChannel()
 	for {
 		select {

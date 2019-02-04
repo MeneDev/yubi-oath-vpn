@@ -38,7 +38,7 @@ func YubiMonitorNew(ctx context.Context) (YubiMonitor, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	yubiMon := &yubiMonitor{ctx: ctx, cancel: cancel}
 
-	scardMon := scardmonitor.ScardMonNew(ctx)
+	scardMon, _ := scardmonitor.ScardMonNew(ctx)
 	scardStatusChan := scardMon.StatusChannel()
 
 	log.Printf("scardStatusChan: %v", scardStatusChan)
