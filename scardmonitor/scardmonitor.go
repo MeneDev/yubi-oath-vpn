@@ -7,6 +7,7 @@ import (
 	"context"
 	"github.com/ebfe/scard"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -90,44 +91,11 @@ func ScardMonNew(ctx context.Context) (ScardMon, error) {
 		readerPresenceChan: make(chan ScardChangeEvent),
 	}
 
-	scardCtx, err := scard.EstablishContext()
-	if err != nil {
-		log.Printf("Could not establish scard context, %s", err.Error())
-		return nil, err
-	}
-
-	scardChangeCtx, err := scard.EstablishContext()
-	if err != nil {
-		defer func() {
-			scardCtx.Cancel()
-			scardCtx.Release()
-		}()
-
-		log.Printf("Could not establish scard context, %s", err.Error())
-		return nil, err
-	}
-
-	mon.scardContext = scardCtx
-	mon.scardChangeCtx = scardChangeCtx
+	go func() {
+		mon.updateLoop()
+	}()
 
 	go func() {
-		defer func() {
-			scardCtx.Cancel()
-			scardCtx.Release()
-		}()
-		defer func() {
-			scardChangeCtx.Cancel()
-			scardChangeCtx.Release()
-		}()
-		defer log.Printf("Stopping ScardMon")
-		defer cancel()
-		defer func() {
-			log.Printf("Closing readerPresenceChan")
-			close(mon.readerPresenceChan)
-		}()
-
-		mon.updateStates()
-
 		//go func() {
 		//	for {
 		//		err := mon.waitAndUpdate()
@@ -148,128 +116,201 @@ func ScardMonNew(ctx context.Context) (ScardMon, error) {
 	return mon, nil
 }
 
-func (mon *scardMon) updateStates() {
-	ctx := mon.scardContext
-	readers, _ := ctx.ListReaders()
+func (mon *scardMon) updateLoop() {
+	var readers []string
 
-	states := make([]scard.ReaderState, len(readers))
+	readerStates := make([]scard.ReaderState, 0)
 
 	magicNotificationDevice := "\\\\?PnP?\\Notification"
 
-	for i := range states {
-		states[i].Reader = readers[i]
-		states[i].CurrentState = scard.StateUnaware
+	listedReaders := make(map[string]int)
+	for i := range readerStates {
+		listedReaders[readers[i]] = i
+		readerStates[i].Reader = readers[i]
+		readerStates[i].CurrentState = scard.StateUnaware
 	}
 
-	states = append(states, scard.ReaderState{
+	states := []scard.ReaderState{{
 		Reader:       magicNotificationDevice,
 		CurrentState: scard.StateUnaware,
-	})
+	}}
+
+	var ctx *scard.Context
+
+	safeCloseContext := func() {
+		if ctx != nil {
+			errCancel := ctx.Cancel()
+			if errCancel != nil {
+				log.Printf("Could not cancel scard context: %s", errCancel.Error())
+			}
+			errRelease := ctx.Release()
+			if errRelease != nil {
+				log.Printf("Could not release scard context: %s", errRelease.Error())
+			}
+		}
+	}
+
+	go func() {
+		<-mon.ctx.Done()
+		safeCloseContext()
+	}()
+
+	contextBroken := false
+	deviceListOutdated := true
 
 	for {
-		log.Printf("Start GetStatusChange with %d readers", len(states))
-		log.Printf("%#v", states)
-		err := ctx.GetStatusChange(states, -1)
-		if err != nil {
-			log.Printf("GetStatusChange error: %s", err.Error())
+		select {
+		case <-mon.ctx.Done():
+			break
+		default:
 		}
 
-		if err != nil {
-			log.Printf("EstablishContext")
+		if contextBroken {
+			safeCloseContext()
+			contextBroken = false
+			ctx = nil
+		}
 
-			// TODO remove all cards
+		if ctx == nil {
+			var err error
 			ctx, err = scard.EstablishContext()
 			if err != nil {
-				log.Printf("EstablishContext error: %s", err.Error())
+				log.Printf("Could not establish scard context: %s", err.Error())
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 		}
-		log.Printf("Finish GetStatusChange with %d readers", len(states))
-		log.Printf("%#v", states)
 
-		for i := range states {
-			states[i].CurrentState = states[i].EventState
-			states[i].EventState = scard.StateUnaware
-			states[i].Atr = nil
-		}
+		if deviceListOutdated {
+			var err error
+			log.Printf("Listing scard readers")
+			readers, err = ctx.ListReaders()
+			if err != nil {
+				log.Printf("Could not list scard readers: %s", err.Error())
+				log.Printf("Assuming broken context")
+				contextBroken = true
+				time.Sleep(100 * time.Millisecond)
+				continue
+			} else {
+				deviceListOutdated = false
 
-		//readers, _ := ctx.ListReaders()
-
-		//magicNotificationDevice := "\\\\?PnP?\\Notification"
-
-		//readersMap := make(map[string]readyReaderInfo)
-		//for _, state := range states {
-		//	if state.EventState&scard.StatePresent != 0 {
-		//		readersMap[state.Reader] = readyReaderInfo{reader: state.Reader}
-		//	}
-		//}
-
-		//log.Printf("readersMap: %v", readersMap)
-
-		//readers, _ = ctx.ListReaders()
-		//states := make([]scard.ReaderState, len(readers))
-		//for i := range states {
-		//	states[i].Reader = readers[i]
-		//	states[i].CurrentState = scard.StateUnaware
-		//	if _, ok := readersMap[readers[i]]; ok {
-		//		states[i].CurrentState = scard.StatePresent
-		//		log.Printf("Reader %s is known", readers[i])
-		//	} else {
-		//		log.Printf("Reader %s is unknown", readers[i])
-		//	}
-		//}
-		//
-		//states = append(states, scard.ReaderState{
-		//	Reader: magicNotificationDevice,
-		//	CurrentState: scard.StateUnaware,
-		//})
-
-	}
-
-	statusChanged := false
-	for !statusChanged {
-		readers, _ = ctx.ListReaders()
-
-		states = make([]scard.ReaderState, len(readers))
-		for i := range states {
-			states[i].Reader = readers[i]
-			states[i].CurrentState = scard.StateUnaware
-			if _, ok := mon.readyReaders[readers[i]]; ok {
-				states[i].CurrentState = scard.StatePresent
+				for _, reader := range readers {
+					if _, ok := listedReaders[reader]; !ok {
+						log.Printf("Start observing scard reader %s", reader)
+						listedReaders[reader] = len(states)
+						states = append(states, scard.ReaderState{
+							Reader:       reader,
+							CurrentState: scard.StateUnaware,
+							EventState:   scard.StateUnaware,
+						})
+					}
+				}
 			}
 		}
 
-		func() {
-			defer func() {
-				// needed on windows
-				recData := recover()
-				if recData != nil {
-					log.Printf("GetStatusChange recover: %v", recData)
-				}
-			}()
-
-			if len(states) > 0 {
-				log.Printf("Start GetStatusChange with %d readers", len(states))
-				err := ctx.GetStatusChange(states, -1)
-				if err != nil {
-					log.Printf("GetStatusChange error: %s", err.Error())
-				}
-				log.Printf("Finish GetStatusChange with %d readers", len(states))
+		log.Printf("Start GetStatusChange with %s", readersString(states))
+		err := ctx.GetStatusChange(states, -1)
+		if err != nil {
+			log.Printf("GetStatusChange error: %s", err.Error())
+			if err == scard.ErrUnknownReader {
+				deviceListOutdated = true
+				continue
 			}
-			statusChanged = true
-			time.Sleep(100 * time.Millisecond)
-		}()
-	}
+		}
 
-	readersMap := make(map[string]readyReaderInfo)
-	for _, state := range states {
-		if state.EventState&scard.StatePresent != 0 {
-			readersMap[state.Reader] = readyReaderInfo{reader: state.Reader}
+		log.Printf("Finish GetStatusChange with %s", readersString(states))
+
+		pseudoDevice := states[0]
+		if pseudoDevice.EventState&scard.StateChanged != 0 {
+			log.Printf("Pseudo device reported change")
+			deviceListOutdated = true
+		}
+
+		updatedStates := make([]scard.ReaderState, 0)
+
+		for i := range states {
+			state := states[i]
+
+			if (state.EventState & ^scard.StateChanged) != state.CurrentState {
+				log.Printf("Reader %s changed from (%s) to (%s)", state.Reader, formatStateFlags(state.CurrentState), formatStateFlags(state.EventState & ^scard.StateChanged))
+			}
+
+			if state.CurrentState&scard.StatePresent == 0 && state.EventState&scard.StatePresent != 0 {
+				log.Printf("Reader %s became available", state.Reader)
+
+				cancelCtx, cancel := context.WithCancel(mon.ctx)
+				state.UserData = cancel
+
+				mon.readerPresenceChan <- scardChangeEvent{
+					id:       state.Reader,
+					presence: Available,
+					scardCtx: ctx,
+					ctx:      cancelCtx,
+				}
+			}
+
+			removed := false
+			if state.CurrentState&scard.StatePresent != 0 && state.EventState&scard.StatePresent == 0 {
+				log.Printf("Reader %s removed", state.Reader)
+				removed = true
+				//mon.readerPresenceChan <- scardChangeEvent{
+				//	id:       state.Reader,
+				//	presence: Unavailable,
+				//	scardCtx: ctx,
+				//	ctx:      mon.ctx,
+				//}
+
+				cancel := state.UserData.(context.CancelFunc)
+				cancel()
+			}
+
+			state.CurrentState = state.EventState & ^scard.StateChanged
+			state.EventState = scard.StateUnaware
+			state.Atr = nil
+
+			if !removed {
+				updatedStates = append(updatedStates, state)
+			} else {
+				delete(listedReaders, state.Reader)
+			}
+		}
+
+		states = updatedStates
+	}
+}
+
+func readersString(states []scard.ReaderState) string {
+	readers := make([]string, 0)
+	for _, s := range states {
+		readers = append(readers, s.Reader)
+	}
+	return strings.Join(readers, ", ")
+}
+
+func formatStateFlags(flags scard.StateFlag) string {
+
+	allFlags := map[scard.StateFlag]string{
+		scard.StateUnaware:     "StateUnaware",
+		scard.StateIgnore:      "StateIgnore",
+		scard.StateChanged:     "StateChanged",
+		scard.StateUnknown:     "StateUnknown",
+		scard.StateUnavailable: "StateUnavailable",
+		scard.StateEmpty:       "StateEmpty",
+		scard.StatePresent:     "StatePresent",
+		scard.StateAtrmatch:    "StateAtrmatch",
+		scard.StateExclusive:   "StateExclusive",
+		scard.StateInuse:       "StateInuse",
+		scard.StateMute:        "StateMute",
+		scard.StateUnpowered:   "StateUnpowered",
+	}
+	usedFlagNames := make([]string, 0)
+	for f, s := range allFlags {
+		if flags&f != 0 || (flags == f) {
+			usedFlagNames = append(usedFlagNames, s)
 		}
 	}
 
-	mon.updateReadyReaders(readersMap)
+	return strings.Join(usedFlagNames, " | ")
 }
 
 func (mon *scardMon) waitAndUpdate() error {
@@ -279,7 +320,7 @@ func (mon *scardMon) waitAndUpdate() error {
 	log.Printf("Start GetStatusChange with pseudo device")
 	err := ctx.GetStatusChange(rs, -1)
 	log.Printf("Finish GetStatusChange with pseudo device")
-	mon.updateStates()
+	mon.updateLoop()
 	return err
 }
 

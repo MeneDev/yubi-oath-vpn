@@ -27,7 +27,12 @@ func (s scardYubiMonitorInsertedEvent) Id() string {
 }
 
 func (s scardYubiMonitorInsertedEvent) Open() (yubikey.YubiKey, error) {
-	return scardyubi.YubiKeyNew(s.ctx, s.scardCtx, s.id)
+	log.Printf("Creating yubikey.YubiKey for device: %s", s.id)
+	scardCtx, err := scard.EstablishContext()
+	if err != nil {
+		log.Printf("Creating yubikey.YubiKey for device %s: %s", s.id, err.Error())
+	}
+	return scardyubi.YubiKeyNew(s.ctx, scardCtx, s.id)
 }
 
 type YubiMonitor interface {
@@ -56,11 +61,7 @@ func YubiMonitorNew(ctx context.Context) (YubiMonitor, error) {
 			case <-ctx.Done():
 				return
 			case s := <-scardStatusChan:
-				log.Printf("s: %v", s)
-				if s == nil {
-					return
-				}
-
+				log.Printf("Reveiced: %v", s)
 				if s.Presence() == scardmonitor.Available {
 					yubiMon.insertedEvent <- scardYubiMonitorInsertedEvent{ctx: s.Context(), scardCtx: s.ScardContext(), id: s.Id()}
 				}
