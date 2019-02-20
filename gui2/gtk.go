@@ -2,6 +2,8 @@ package gui2
 
 import (
 	"context"
+	"fmt"
+	"github.com/MeneDev/yubi-oath-vpn/githubreleasemon"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -24,6 +26,7 @@ type gtkGui struct {
 	boxErrorHeader *gtk.Box
 	btnCancel      *gtk.Button
 	boxRoot        *gtk.Box
+	lnkUpdate      *gtk.LinkButton
 }
 
 func (g gtkGui) hide() {
@@ -74,6 +77,16 @@ func (g gtkGui) HideError() {
 	})
 }
 
+func (g gtkGui) SetVersion(release githubreleasemon.Release) {
+	glib.IdleAdd(func() {
+		label := fmt.Sprintf("Version %s available", release.TagName)
+		url := release.HtmlUrl
+		g.lnkUpdate.SetLabel(label)
+		g.lnkUpdate.SetUri(url)
+		g.lnkUpdate.SetVisible(true)
+	})
+}
+
 type eventHandlers struct {
 	onDestroy           func()
 	onWinKeyPress       func(win *gtk.Window, ev *gdk.Event)
@@ -82,7 +95,7 @@ type eventHandlers struct {
 	onBtnCancelClicked  func(btn *gtk.Button)
 }
 
-func gtkGuiNew(ctx context.Context, handlers eventHandlers) (*gtkGui, error) {
+func gtkGuiNew(ctx context.Context, title string, handlers eventHandlers) (*gtkGui, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	g := &gtkGui{ctx: ctx, cancel: cancel}
 
@@ -114,7 +127,7 @@ func gtkGuiNew(ctx context.Context, handlers eventHandlers) (*gtkGui, error) {
 			return
 		}
 		win := objDlg.(*gtk.Window)
-		win.SetTitle("Yubi Monitor")
+		win.SetTitle(title)
 
 		objPassword, err := builder.GetObject("txtPassword")
 		if err != nil {
@@ -225,6 +238,15 @@ func gtkGuiNew(ctx context.Context, handlers eventHandlers) (*gtkGui, error) {
 		}
 		txtError := objTxtError.(*gtk.TextView)
 
+		objLnkUpdate, err := builder.GetObject("lnkUpdate")
+		if err != nil {
+			errCh <- err
+			return
+		}
+		lnkUpdate := objLnkUpdate.(*gtk.LinkButton)
+		lnkUpdate.SetVisible(false)
+		lnkUpdate.SetLabel("")
+
 		buffer, err := gtk.TextBufferNew(nil)
 		txtError.SetBuffer(buffer)
 
@@ -239,8 +261,8 @@ func gtkGuiNew(ctx context.Context, handlers eventHandlers) (*gtkGui, error) {
 		g.boxErrorHeader = boxErrorHeader
 		g.btnCancel = btnCancel
 		g.boxRoot = boxRoot
-
-		g._reset()
+		g.boxRoot = boxRoot
+		g.lnkUpdate = lnkUpdate
 
 		errCh <- nil
 		gtk.Main()

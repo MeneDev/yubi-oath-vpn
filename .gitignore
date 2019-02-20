@@ -3,3 +3,7 @@ vendor/
 docker-hub-login.sh
 
 yubi-oath-vpn
+
+*.glade~
+
+*.gtk~

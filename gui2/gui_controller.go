@@ -2,6 +2,7 @@ package gui2
 
 import (
 	"context"
+	"github.com/MeneDev/yubi-oath-vpn/githubreleasemon"
 	"github.com/MeneDev/yubi-oath-vpn/netctrl"
 	"github.com/MeneDev/yubi-oath-vpn/yubikey"
 	"github.com/gotk3/gotk3/gdk"
@@ -20,6 +21,7 @@ type GuiController interface {
 	ConnectWith(key yubikey.YubiKey, connectionId string)
 	InitializeConnection() chan ConnectionParameters
 	ConnectionResult(events netctrl.ConnectionAttemptResult)
+	SetLatestVersion(release githubreleasemon.Release)
 }
 
 type guiController struct {
@@ -32,6 +34,10 @@ type guiController struct {
 	initializeConnectionChan chan ConnectionParameters
 	connectionId             string
 	cancelCurrentConnection  context.CancelFunc
+}
+
+func (ctrl *guiController) SetLatestVersion(release githubreleasemon.Release) {
+	ctrl.gtkGui.SetVersion(release)
 }
 
 func (ctrl *guiController) ConnectionResult(event netctrl.ConnectionAttemptResult) {
@@ -49,7 +55,7 @@ func (ctrl *guiController) InitializeConnection() chan ConnectionParameters {
 
 var _ GuiController = (*guiController)(nil)
 
-func GuiControllerNew(ctx context.Context) (GuiController, error) {
+func GuiControllerNew(ctx context.Context, title string) (GuiController, error) {
 
 	ctx, cancel := context.WithCancel(ctx)
 	controller := &guiController{ctx: ctx, cancel: cancel}
@@ -62,7 +68,7 @@ func GuiControllerNew(ctx context.Context) (GuiController, error) {
 		onBtnCancelClicked:  controller.onBtnCancelClicked,
 	}
 
-	gtkGui, e := gtkGuiNew(ctx, handlers)
+	gtkGui, e := gtkGuiNew(ctx, title, handlers)
 	if e != nil {
 		cancel()
 		return nil, e
@@ -81,7 +87,7 @@ func GuiControllerNew(ctx context.Context) (GuiController, error) {
 
 		for {
 
-			println("waiting")
+			log.Printf("GUI waiting for events")
 			select {
 			case <-ctx.Done():
 				break

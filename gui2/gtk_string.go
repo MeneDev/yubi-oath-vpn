@@ -108,9 +108,6 @@ const gtkGuiString = `<?xml version="1.0" encoding="UTF-8"?>
           </packing>
         </child>
         <child>
-          <placeholder/>
-        </child>
-        <child>
           <object class="GtkBox" id="boxError">
             <property name="can_focus">False</property>
             <property name="orientation">vertical</property>
@@ -164,51 +161,68 @@ const gtkGuiString = `<?xml version="1.0" encoding="UTF-8"?>
                 <property name="position">1</property>
               </packing>
             </child>
-            <child>
-              <placeholder/>
-            </child>
           </object>
           <packing>
             <property name="expand">False</property>
             <property name="fill">False</property>
-            <property name="position">4</property>
+            <property name="position">3</property>
           </packing>
         </child>
         <child>
-          <placeholder/>
-        </child>
-        <child>
-          <placeholder/>
-        </child>
-        <child>
-          <object class="GtkButtonBox">
+          <object class="GtkBox">
+            <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <property name="margin_top">10</property>
-            <property name="hexpand">True</property>
-            <property name="layout_style">end</property>
             <child>
-              <object class="GtkButton" id="btnConnect">
-                <property name="label">gtk-connect</property>
-                <property name="visible">True</property>
+              <object class="GtkLinkButton" id="lnkUpdate">
+                <property name="label" translatable="yes">button</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-                <property name="always_show_image">True</property>
+                <property name="relief">none</property>
+                <property name="uri">http://glade.gnome.org</property>
               </object>
               <packing>
-                <property name="expand">True</property>
+                <property name="expand">False</property>
                 <property name="fill">True</property>
                 <property name="position">0</property>
               </packing>
             </child>
             <child>
-              <object class="GtkButton" id="btnCancel">
-                <property name="label">gtk-cancel</property>
+              <object class="GtkButtonBox">
                 <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="use_stock">True</property>
-                <property name="always_show_image">True</property>
+                <property name="can_focus">False</property>
+                <property name="margin_top">10</property>
+                <property name="hexpand">True</property>
+                <property name="layout_style">end</property>
+                <child>
+                  <object class="GtkButton" id="btnConnect">
+                    <property name="label">gtk-connect</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="use_stock">True</property>
+                    <property name="always_show_image">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="btnCancel">
+                    <property name="label">gtk-cancel</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="use_stock">True</property>
+                    <property name="always_show_image">True</property>
+                  </object>
+                  <packing>
+                    <property name="expand">True</property>
+                    <property name="fill">True</property>
+                    <property name="position">1</property>
+                  </packing>
+                </child>
               </object>
               <packing>
                 <property name="expand">True</property>
@@ -218,9 +232,9 @@ const gtkGuiString = `<?xml version="1.0" encoding="UTF-8"?>
             </child>
           </object>
           <packing>
-            <property name="expand">True</property>
+            <property name="expand">False</property>
             <property name="fill">True</property>
-            <property name="position">7</property>
+            <property name="position">4</property>
           </packing>
         </child>
       </object>
