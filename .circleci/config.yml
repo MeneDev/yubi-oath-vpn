@@ -27,7 +27,7 @@ jobs:
       
     working_directory: /go/src/github.com/MeneDev/yubi-oath-vpn
     environment:
-      - DEP_VERSION: 0.4.1
+      - DEP_VERSION: 0.5.0
       - GITHUB_USER: MeneDev
       - GITHUB_PROJECT: yubi-oath-vpn
       - GOCACHE: "/tmp/go/cache"
@@ -54,8 +54,11 @@ jobs:
       - run:
           name: Build project
           command: |
+            ls -l /go/src/github.com/MeneDev/yubi-oath-vpn
+            ls -l /go/src/github.com/MeneDev/yubi-oath-vpn/cmd
+            ls -l /go/src/github.com/MeneDev/yubi-oath-vpn/cmd/yubi-oath-vpn
             tag="$(semantics --output-tag --dry-run)"
-            gox -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -os="linux" -arch="amd64" -output "release/yubi-oath-vpn-{{.OS}}_{{.Arch}}"
+            gox -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -os="linux" -arch="amd64" -output "release/yubi-oath-vpn-{{.OS}}_{{.Arch}}" github.com/MeneDev/yubi-oath-vpn/cmd/yubi-oath-vpn
       - run: release/yubi-oath-vpn-linux_amd64 --version
 
       - persist_to_workspace:
