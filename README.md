@@ -1,4 +1,4 @@
-# yubi-oath-vpn monitor [![CircleCI](https://circleci.com/gh/MeneDev/yubi-oath-vpn.svg?style=svg)]
+# yubi-oath-vpn monitor [![CircleCI](https://circleci.com/gh/MeneDev/yubi-oath-vpn.svg?style=svg)](https://circleci.com/gh/MeneDev/yubi-oath-vpn) [![Follow @MeneDev on Twitter](https://img.shields.io/twitter/follow/MeneDev.svg?style=social&label=%40MeneDev)](https://twitter.com/MeneDev)
 
 Simply insert your Yubikey to an USB-slot and connect to your 2FA-VPN. 
 
