@@ -12,8 +12,8 @@ jobs:
           name: Build and push image if builder/Dockerfile has changed
           command:  |
             docker pull menedev/yubi-oath-vpn-builder:latest
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
             if [ ! -f /tmp/docker_pushed ]; then
-              docker login -u $DOCKER_USER -p $DOCKER_PASS
               docker build -f builder2/Dockerfile -t menedev/yubi-oath-vpn-builder:latest .
               docker push menedev/yubi-oath-vpn-builder:latest
               echo 1 > /tmp/docker_pushed
