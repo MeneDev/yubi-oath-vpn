@@ -110,6 +110,14 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 		}
 		log.Printf("Trigger connection ok\n")
 
+		log.Printf("Unset silence\n")
+		if err := execute(ctx, exe, "--command", "silent_connection", "1"); err != nil {
+			log.Print(err)
+			ctor.resultsChan <- &nmcliResult{message: err.Error(), success: false}
+			return
+		}
+		log.Printf("Unset silence ok\n")
+
 		followContext, followCancel := context.WithCancel(ctx)
 		linesChan := make(chan lineError)
 
@@ -141,7 +149,6 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 				ctor.resultsChan <- &nmcliResult{message: "Canceled", success: false}
 				return
 			case lineError := <-linesChan:
-				log.Printf("Received from log follower\n")
 				if lineError.err != nil {
 					log.Print(lineError.err)
 					ctor.resultsChan <- &nmcliResult{message: lineError.err.Error(), success: false}
@@ -192,7 +199,7 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 }
 
 func storePassword(connectionName string, code string) {
-	k, err := registry.OpenKey(registry.CURRENT_USER, `SOFTWARE\OpenVPN-GUI\configs\client`, registry.QUERY_VALUE|registry.WRITE)
+	k, err := registry.OpenKey(registry.CURRENT_USER, `SOFTWARE\OpenVPN-GUI\configs\` + connectionName, registry.QUERY_VALUE|registry.WRITE)
 	if err != nil {
 		println(1)
 		log.Print(err)
