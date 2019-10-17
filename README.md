@@ -58,5 +58,5 @@ We use Yubikeys for two factor authentication against our VPN.
 We have a Bash script with similar functionality, but the tools (ykman, yubioath) keep changing and dbus-monitor was behaving differently depending on distro.
 
 ## Disclaimer
-Only tested against a single Yubikey version.
+Only tested against one Yubikey 4 and one Yubikey 5 version.
 It's my first go project. Expect bugs and low code quality.
