@@ -63,13 +63,12 @@ func (key *scardYubiKey) GetCodeWithPassword(pwd string) (string, error) {
 
 	rsp, err := key.selectAid(AID_OTP)
 	if err != nil {
-		return "", err
+		fmt.Printf("Error setting 'AID_OTP': %s\n", err)
 	}
 
 	serial, err := key.readSerial()
 	if err != nil {
-		fmt.Println("Error Transmit:", err)
-		return "", err
+		fmt.Printf("Error reading serial: %s\n", err)
 	}
 	fmt.Printf("% 0x \n", rsp)
 	fmt.Printf("serial %d\n", serial)
