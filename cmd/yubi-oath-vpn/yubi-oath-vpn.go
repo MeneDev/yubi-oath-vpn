@@ -86,7 +86,7 @@ func main() {
 			if applicableYubiKey(key) {
 				connectedToTun, _ := isConnectedToTun()
 				if !connectedToTun {
-					controller.ConnectWith(key, opts.ConnectionName)
+					controller.ConnectWith(key, opts.ConnectionName, opts.SlotName)
 				} else {
 					log.Printf("Connected TUN device found, not trying to connect")
 				}

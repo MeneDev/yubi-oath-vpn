@@ -57,7 +57,7 @@ func (key *scardYubiKey) Context() context.Context {
 	return key.ctx
 }
 
-func (key *scardYubiKey) GetCodeWithPassword(pwd string) (string, error) {
+func (key *scardYubiKey) GetCodeWithPassword(pwd string, slotName string) (string, error) {
 
 	card := key.card
 
@@ -93,16 +93,18 @@ func (key *scardYubiKey) GetCodeWithPassword(pwd string) (string, error) {
 		return "", err
 	}
 
-	tlvs, err := key.parseTlvs(resp_oath)
+	tlvsList, err := key.parseTlvs(resp_oath)
 	if err != nil {
 		return "", err
 	}
+	tlvs := tlvsToMap(tlvsList)
 
 	OATH_TAG_NAME := byte(0x71)
 	OATH_TAG_CHALLENGE := byte(0x74)
 	OATH_TAG_ALGORITHM := byte(0x7b)
 	OATH_TAG_VERSION := byte(0x79)
 	OATH_TAG_RESPONSE := byte(0x75)
+	OATH_TAG_TRUNCATED_RESPONSE := byte(0x76)
 
 	name := binary.BigEndian.Uint64(tlvs[OATH_TAG_NAME].value)
 
@@ -144,16 +146,17 @@ func (key *scardYubiKey) GetCodeWithPassword(pwd string) (string, error) {
 		return "", err
 	}
 
-	verify_tlvs, err := key.parseTlvs(verify_resp)
+	verifyTlvsList, err := key.parseTlvs(verify_resp)
 	if err != nil {
 		return "", err
 	}
+	verifyTlvs := tlvsToMap(verifyTlvsList)
 
-	println(verify_tlvs)
+	println(verifyTlvs)
 	fmt.Printf("verification: % 0x\n", verification)
-	fmt.Printf("verification: % 0x\n", verify_tlvs[OATH_TAG_RESPONSE].value)
+	fmt.Printf("verification: % 0x\n", verifyTlvs[OATH_TAG_RESPONSE].value)
 
-	if !reflect.DeepEqual(verification, verify_tlvs[OATH_TAG_RESPONSE].value) {
+	if !reflect.DeepEqual(verification, verifyTlvs[OATH_TAG_RESPONSE].value) {
 		panic("Verification failed")
 	}
 
@@ -172,20 +175,40 @@ func (key *scardYubiKey) GetCodeWithPassword(pwd string) (string, error) {
 	}
 	fmt.Printf("% 0x\n", rsp_5)
 
-	creds_tlvs, err := key.parseTlvs(rsp_5)
+	credsTlvs, err := key.parseTlvs(rsp_5)
 	if err != nil {
 		return "", err
 	}
 
-	TRUNCATED_RESPONSE := byte(0x76)
+	foundSlot := false
+	var strCode string
+	for _, tlv := range credsTlvs {
+		if tlv.tag == OATH_TAG_NAME {
+			keySlotName := string(tlv.value)
 
-	fmt.Printf("code is in: % 0x\n", creds_tlvs[TRUNCATED_RESPONSE].value)
+			if slotName == "" || keySlotName == slotName {
+				foundSlot = true
+				fmt.Printf("slot %s matched\n", keySlotName)
+			} else {
+				fmt.Printf("found non-matching slot %s\n", keySlotName)
+			}
+		}
 
-	code := parseTruncated(creds_tlvs[TRUNCATED_RESPONSE].value[1:])
+		if foundSlot && tlv.tag == OATH_TAG_TRUNCATED_RESPONSE {
+			fmt.Printf("code is in: % 0x\n", tlv.value)
 
-	fmt.Printf("code: %06d\n", code)
+			code := parseTruncated(tlv.value[1:])
 
-	strCode := fmt.Sprintf("%06d", code)
+			fmt.Printf("code: %06d\n", code)
+			strCode = fmt.Sprintf("%06d", code)
+
+			break
+		}
+	}
+
+	if !foundSlot {
+		return "", yubierror.ErrorSlotNotFound
+	}
 
 	return strCode, err
 }
@@ -260,8 +283,8 @@ type Tlv struct {
 	value []byte
 }
 
-func (self *scardYubiKey) parseTlvs(response []byte) (map[byte]Tlv, error) {
-	tlvs := make(map[byte]Tlv)
+func (self *scardYubiKey) parseTlvs(response []byte) ([]Tlv, error) {
+	var tlvs []Tlv
 	for len(response) > 0 {
 		tag := response[0]
 		ln := uint64(response[1])
@@ -284,10 +307,20 @@ func (self *scardYubiKey) parseTlvs(response []byte) (map[byte]Tlv, error) {
 			value: value,
 		}
 
-		tlvs[tag] = tlv
+		tlvs = append(tlvs, tlv)
 	}
 
 	return tlvs, nil
+}
+
+func tlvsToMap(tlvs []Tlv) map[byte]Tlv {
+	result := make(map[byte]Tlv)
+
+	for _, tlv := range tlvs {
+		result[tlv.tag] = tlv
+	}
+
+	return result
 }
 
 func (self Tlv) buffer() []byte {

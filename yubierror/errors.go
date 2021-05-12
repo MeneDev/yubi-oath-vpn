@@ -7,6 +7,7 @@ const (
 	ErrorChkWrong      YubiKeyError = iota
 	ErrorWrongPassword YubiKeyError = iota
 	ErrorUserCancled   YubiKeyError = iota
+	ErrorSlotNotFound  YubiKeyError = iota
 )
 
 func (e YubiKeyError) Error() string {
@@ -17,6 +18,8 @@ func (e YubiKeyError) Error() string {
 		return "Wrong YubiKey password"
 	case ErrorUserCancled:
 		return "User canceled"
+	case ErrorSlotNotFound:
+		return "No slot with the specified name was found"
 	}
 	return "unknown error"
 }

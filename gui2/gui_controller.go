@@ -18,7 +18,7 @@ type ConnectionParameters struct {
 }
 
 type GuiController interface {
-	ConnectWith(key yubikey.YubiKey, connectionId string)
+	ConnectWith(key yubikey.YubiKey, connectionId string, slotName string)
 	InitializeConnection() chan ConnectionParameters
 	ConnectionResult(events netctrl.ConnectionAttemptResult)
 	SetLatestVersion(release githubreleasemon.Release)
@@ -33,6 +33,7 @@ type guiController struct {
 	yubiKey                  yubikey.YubiKey
 	initializeConnectionChan chan ConnectionParameters
 	connectionId             string
+	slotName                 string
 	cancelCurrentConnection  context.CancelFunc
 }
 
@@ -102,9 +103,9 @@ func GuiControllerNew(ctx context.Context, title string) (GuiController, error) 
 	return controller, nil
 }
 
-func (ctrl *guiController) ConnectWith(key yubikey.YubiKey, connectionId string) {
+func (ctrl *guiController) ConnectWith(key yubikey.YubiKey, connectionId string, slotName string) {
 	println("ConnectWith")
-	ctrl.sendEvent(evKeyInserted, key, connectionId)
+	ctrl.sendEvent(evKeyInserted, key, connectionId, slotName)
 	go func() {
 		<-key.Context().Done()
 
