@@ -88,6 +88,7 @@ func eventString(e *fsm.Event, idx int) string {
 func (ctrl *guiController) enterPrepare(e *fsm.Event) {
 	key := key(e, 0)
 	connectionId := eventString(e, 1)
+	slotName := eventString(e, 2)
 	//key.RequiresPassword()
 	// TODO password required?
 	glib.IdleAdd(func() {
@@ -96,6 +97,7 @@ func (ctrl *guiController) enterPrepare(e *fsm.Event) {
 
 	ctrl.yubiKey = key
 	ctrl.connectionId = connectionId
+	ctrl.slotName = slotName
 	ctrl.sendEvent(evPasswordRequired, key, connectionId)
 }
 func (ctrl *guiController) leavePrepare(e *fsm.Event) {
@@ -139,7 +141,7 @@ func (ctrl *guiController) enterConnecting(e *fsm.Event) {
 	ctrl.gtkGui.HideError()
 
 	password := e.Args[0].(string)
-	code, err := ctrl.yubiKey.GetCodeWithPassword(password)
+	code, err := ctrl.yubiKey.GetCodeWithPassword(password, ctrl.slotName)
 
 	println("code", code)
 	println("err", err)

@@ -4,5 +4,5 @@ import "context"
 
 type YubiKey interface {
 	Context() context.Context
-	GetCodeWithPassword(password string) (string, error)
+	GetCodeWithPassword(password string, slotName string) (string, error)
 }
