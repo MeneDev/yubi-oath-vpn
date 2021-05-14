@@ -1,4 +1,4 @@
-version: 2
+version: 2.1
 jobs:
   create_builder:
     machine: true

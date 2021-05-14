@@ -4,12 +4,14 @@ Simply insert your Yubikey to an USB-slot and connect to your 2FA-VPN.
 
 ## Usage
 Windows (experimental, see below)  
-`yubi-oath-vpn /connection=<OpenVPN configuration name>`
+`yubi-oath-vpn /connection=<OpenVPN configuration name> [/slot=user@example.com]`
 
 Linux  
-`yubi-oath-vpn --connection=<connection name>`
+`yubi-oath-vpn --connection=<connection name> [--slot=user@example.com]`
 
 Will start the program and connect as soon as the Yubikey is inserted (and not already connected)
+
+If the `slot` argument is omitted, the first slot is used.
 
 ### Autostart Startmenu entry (Windows)
 
@@ -55,8 +57,9 @@ Example:
 
 ## Background
 We use Yubikeys for two factor authentication against our VPN.
-We have a Bash script with similar functionality, but the tools (ykman, yubioath) keep changing and dbus-monitor was behaving differently depending on distro.
+We have a Bash script with similar functionality, but the tools (ykman, yubioath) keep changing and dbus-monitor was behaving differently depending on Linux distribution.
 
 ## Disclaimer
 Only tested against one Yubikey 4 and one Yubikey 5 version.
 It's my first go project. Expect bugs and low code quality.
+That being said it's in active use for several years on different systems and seems to work just fine.
