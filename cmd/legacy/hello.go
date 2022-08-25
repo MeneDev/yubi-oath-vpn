@@ -3,14 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/MeneDev/yubi-oath-vpn/gui"
-	"github.com/MeneDev/yubi-oath-vpn/yubierror"
-	"github.com/ebfe/scard"
-	"github.com/google/gousb"
-	"github.com/gotk3/gotk3/gdk"
-	"github.com/gotk3/gotk3/gtk"
-	"github.com/jessevdk/go-flags"
-	"github.com/jochenvg/go-udev"
 	"io"
 	"log"
 	"net"
@@ -19,6 +11,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/MeneDev/yubi-oath-vpn/gui"
+	"github.com/MeneDev/yubi-oath-vpn/yubierror"
+	"github.com/ebfe/scard"
+	"github.com/google/gousb"
+	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/gtk"
+	"github.com/jessevdk/go-flags"
+	"github.com/jochenvg/go-udev"
 )
 
 type TAG byte
@@ -73,22 +74,22 @@ func askPassword(additionalMessage string) (string, error) {
 		// Initialize GTK without parsing any command line arguments.
 		gtk.Init(nil)
 
-		builder, err := gtk.BuilderNewFromFile("/home/marndt/go/src/github.com/MeneDev/yubi-oath-vpn/ConnectDialog.gtk")
+		builder, _ := gtk.BuilderNewFromFile("/home/marndt/go/src/github.com/MeneDev/yubi-oath-vpn/ConnectDialog.gtk")
 
-		objDlg, err := builder.GetObject("Dialog")
+		objDlg, _ := builder.GetObject("Dialog")
 		win := objDlg.(*gtk.Window)
 
-		objPassword, err := builder.GetObject("txtPassword")
+		objPassword, _ := builder.GetObject("txtPassword")
 		txtPassword := objPassword.(*gtk.Entry)
 		txtPassword.SetInputPurpose(gtk.INPUT_PURPOSE_PASSWORD)
 		txtPassword.SetVisibility(false)
 
-		objConnect, err := builder.GetObject("btnConnect")
+		objConnect, _ := builder.GetObject("btnConnect")
 		btnConnect := objConnect.(*gtk.Button)
 
-		objConnecting, err := builder.GetObject("lblConnecting")
+		objConnecting, _ := builder.GetObject("lblConnecting")
 		lblConnect := objConnecting.(*gtk.Label)
-		objConnectingSpinner, err := builder.GetObject("spnConnecting")
+		objConnectingSpinner, _ := builder.GetObject("spnConnecting")
 		spnConnecting := objConnectingSpinner.(*gtk.Spinner)
 		spnConnecting.Stop()
 		lblConnect.SetLabel("")
