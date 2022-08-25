@@ -2,13 +2,14 @@ package gui2
 
 import (
 	"context"
+
 	"github.com/MeneDev/yubi-oath-vpn/githubreleasemon"
 	"github.com/MeneDev/yubi-oath-vpn/netctrl"
 	"github.com/MeneDev/yubi-oath-vpn/yubikey"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/gtk"
 	"github.com/looplab/fsm"
-	"log"
+	"github.com/rs/zerolog/log"
 )
 
 type ConnectionParameters struct {
@@ -45,7 +46,7 @@ func (ctrl *guiController) ConnectionResult(event netctrl.ConnectionAttemptResul
 	if event.Success() {
 		ctrl.sendEvent(evConnectionEstablished)
 	} else {
-		log.Printf("evConnectionError Error: %s", event.String())
+		log.Error().Str("error", event.String()).Msg("evConnectionError error")
 		ctrl.sendEvent(evConnectionError, event.String())
 	}
 }
@@ -84,27 +85,27 @@ func GuiControllerNew(ctx context.Context, title string) (GuiController, error) 
 		defer cancel()
 		defer close(controller.initializeConnectionChan)
 		defer close(controller.eventInChan)
-		defer println("gui controller done")
+		defer log.Debug().Msg("gui controller done")
 
 		for {
 
-			log.Printf("GUI waiting for events")
+			log.Debug().Msg("GUI waiting for events")
 			select {
 			case <-ctx.Done():
 				break
 			case ev := <-controller.eventInChan:
-				println("received")
+				log.Debug().Msg("received")
 				controller.dispatchEvent(ev)
-				println("/received")
+				log.Debug().Msg("/received")
 			}
-			println("processed")
+			log.Debug().Msg("processed")
 		}
 	}()
 	return controller, nil
 }
 
 func (ctrl *guiController) ConnectWith(key yubikey.YubiKey, connectionId string, slotName string) {
-	println("ConnectWith")
+	log.Debug().Msg("ConnectWith")
 	ctrl.sendEvent(evKeyInserted, key, connectionId, slotName)
 	go func() {
 		<-key.Context().Done()
@@ -145,18 +146,18 @@ func (ctrl *guiController) onBtnCancelClicked(ev *gtk.Button) {
 }
 
 func (ctrl *guiController) sendEvent(event string, args ...interface{}) {
-	println("sendEvent")
+	log.Debug().Msg("sendEvent")
 	data := eventData{event: event, args: args}
 	go func() {
 		ctrl.eventInChan <- data
-		println("/sendEvent")
+		log.Debug().Msg("/sendEvent")
 	}()
 }
 
 func (ctrl *guiController) dispatchEvent(ev eventData) {
-	println("dispatchEvent")
+	log.Debug().Msg("dispatchEvent")
 	err := ctrl.states.Event(ev.event, ev.args...)
 	if err != nil {
-		println(err)
+		log.Error().Err(err).Msg("dispatchEvent error")
 	}
 }

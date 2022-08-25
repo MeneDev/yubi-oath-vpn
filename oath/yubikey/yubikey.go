@@ -1,22 +1,24 @@
 package yubikey
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/rand"
+	"strings"
+	"sync/atomic"
+	"time"
+
 	"github.com/MeneDev/yubi-oath-vpn/oath"
 	"github.com/MeneDev/yubi-oath-vpn/yubierror"
 	"github.com/ebfe/scard"
 	"github.com/google/gousb"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/pbkdf2"
-	"math/rand"
-	"reflect"
-	"strings"
-	"sync/atomic"
-	"time"
 )
 
 type yubiKeyReader struct {
@@ -50,7 +52,7 @@ func (self yubiKeyReader) send_apdu(cl byte, ins byte, p1 byte, p2 byte, data []
 	header := []byte{cl, ins, p1, p2, byte(len(data))}
 	telegram := append(header, data...)
 
-	fmt.Printf("sending: % 0x\n", telegram)
+	log.Debug().Hex("value", telegram).Msg("sending apdu")
 
 	rsp, err := card.Transmit(telegram)
 
@@ -58,7 +60,7 @@ func (self yubiKeyReader) send_apdu(cl byte, ins byte, p1 byte, p2 byte, data []
 		return rsp, err
 	}
 
-	fmt.Printf("received %d bytes: % 0x\n", len(rsp), rsp)
+	log.Debug().Hex("value", rsp).Msg("received response")
 
 	chk_buffer := rsp[len(rsp)-2:]
 
@@ -140,14 +142,14 @@ func parseTruncated(data []byte) uint32 {
 func (yubikey yubiKeyReader) getCode(pwd string) (string, error) {
 	scardCtx := yubikey.scardCtx
 
-	fmt.Print("ListReaders... ")
+	log.Debug().Msg("ListReaders... ")
 	// List available readers
 	readers, err := scardCtx.ListReaders()
 	if err != nil {
-		fmt.Println("Error ListReaders:", err)
+		log.Error().Err(err).Msg("ListReaders failed")
 		return "", err
 	}
-	fmt.Println("done")
+	log.Debug().Msg("done")
 
 	// Use the first reader with "yubi" in its name
 	var reader string
@@ -158,12 +160,12 @@ func (yubikey yubiKeyReader) getCode(pwd string) (string, error) {
 		}
 	}
 
-	fmt.Println("Using reader:", reader)
+	log.Debug().Msg("using reader " + reader)
 
 	// Connect to the card
 	card, err := scardCtx.Connect(reader, scard.ShareShared, scard.ProtocolAny)
 	if err != nil {
-		fmt.Println("Error Connect:", err)
+		log.Error().Err(err).Msg("error connecting to card")
 		return "", err
 	}
 
@@ -172,34 +174,39 @@ func (yubikey yubiKeyReader) getCode(pwd string) (string, error) {
 
 	rsp, err := yubikey.selectAid(AID_OTP)
 	if err != nil {
+		log.Error().Err(err).Msg("Error setting 'AID_OTP'")
 		return "", err
 	}
 
 	serial, err := yubikey.readSerial()
 	if err != nil {
-		fmt.Println("Error Transmit:", err)
+		log.Error().Err(err).Msg("Error reading serial")
 		return "", err
 	}
-	fmt.Printf("% 0x \n", rsp)
-	fmt.Printf("serial %d\n", serial)
+
+	log.Debug().
+		Uint32("serial", serial).
+		Hex("rsp", rsp).
+		Msg("serial")
 
 	rsp_mgr, err := yubikey.selectAid(AID_MGR)
 	if err != nil {
 		return "", err
 	}
 
-	fmt.Printf("rsp_oath: % 0x \n", rsp_mgr)
+	log.Debug().Hex("value", rsp_mgr).Msg("rsp_oath")
 
 	var cmd_3 = []byte{0x00, 0x1D, 0x00, 0x00, 0x00}
 	rsp_3, err := card.Transmit(cmd_3)
 	if err != nil {
-		fmt.Println("Error Transmit:", err)
+		log.Error().Err(err).Msg("error transmitting")
 		return "", err
 	}
-	fmt.Printf("% 0x\n", rsp_3)
+	log.Debug().Hex("value", rsp_3).Msg("rsp_3")
 
 	resp_oath, err := yubikey.selectAid(AID_OATH)
 	if err != nil {
+		log.Error().Err(err).Msg("Error setting 'AID_OATH'")
 		return "", err
 	}
 
@@ -216,11 +223,12 @@ func (yubikey yubiKeyReader) getCode(pwd string) (string, error) {
 
 	name := binary.BigEndian.Uint64(tlvs[OATH_TAG_NAME].value)
 
-	fmt.Printf("name: % 0x\n", tlvs[OATH_TAG_NAME].value)
-	fmt.Printf("name: %d\n", name)
-
-	fmt.Printf("algorithm: % 0x\n", tlvs[OATH_TAG_ALGORITHM])
-	fmt.Printf("version: % 0x\n", tlvs[OATH_TAG_VERSION])
+	log.Debug().
+		Uint64("name_id", name).
+		Hex("raw_name", tlvs[OATH_TAG_NAME].value).
+		Hex("algorithm", tlvs[OATH_TAG_ALGORITHM].value).
+		Hex("version", tlvs[OATH_TAG_VERSION].value).
+		Msg("response")
 
 	if err != nil {
 		return "", err
@@ -246,7 +254,7 @@ func (yubikey yubiKeyReader) getCode(pwd string) (string, error) {
 
 	verify_resp, err := yubikey.send_apdu(0, INS_VALIDATE, 0, 0, validate_data)
 	if err, ok := err.(yubierror.YubiKeyError); ok && err == yubierror.ErrorChkWrong {
-		if reflect.DeepEqual(verify_resp, []byte{0x6A, 0x80}) {
+		if bytes.Equal(verify_resp, []byte{0x6A, 0x80}) {
 			return "", yubierror.ErrorWrongPassword
 		}
 	}
@@ -259,11 +267,12 @@ func (yubikey yubiKeyReader) getCode(pwd string) (string, error) {
 		return "", err
 	}
 
-	println(verify_tlvs)
-	fmt.Printf("verification: % 0x\n", verification)
-	fmt.Printf("verification: % 0x\n", verify_tlvs[OATH_TAG_RESPONSE].value)
+	log.Debug().
+		Hex("expected", verification).
+		Hex("received", verify_tlvs[OATH_TAG_RESPONSE].value).
+		Msg("verification")
 
-	if !reflect.DeepEqual(verification, verify_tlvs[OATH_TAG_RESPONSE].value) {
+	if !bytes.Equal(verification, verify_tlvs[OATH_TAG_RESPONSE].value) {
 		panic("Verification failed")
 	}
 
@@ -277,23 +286,22 @@ func (yubikey yubiKeyReader) getCode(pwd string) (string, error) {
 
 	rsp_5, err := card.Transmit(cmd_5)
 	if err != nil {
-		fmt.Println("Error Transmit:", err)
+		log.Error().Err(err).Msg("error transmitting")
 		return "", err
 	}
-	fmt.Printf("% 0x\n", rsp_5)
+	log.Debug().Hex("value", rsp_5).Msg("rsp_5")
 
 	creds_tlvs, err := yubikey.parseTlvs(rsp_5)
 	if err != nil {
+		log.Error().Err(err).Msg("error parsing TLVs")
 		return "", err
 	}
 
 	TRUNCATED_RESPONSE := byte(0x76)
 
-	fmt.Printf("code is in: % 0x\n", creds_tlvs[TRUNCATED_RESPONSE].value)
-
 	code := parseTruncated(creds_tlvs[TRUNCATED_RESPONSE].value[1:])
 
-	fmt.Printf("code: %06d\n", code)
+	log.Debug().Hex("raw_code", creds_tlvs[TRUNCATED_RESPONSE].value).Uint32("code", code).Msg("code message received")
 
 	strCode := fmt.Sprintf("%06d", code)
 

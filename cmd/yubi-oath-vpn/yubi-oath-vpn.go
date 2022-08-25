@@ -3,26 +3,46 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"os/signal"
+	"runtime"
+	"strings"
+
 	"github.com/MeneDev/yubi-oath-vpn/githubreleasemon"
 	"github.com/MeneDev/yubi-oath-vpn/gui2"
 	"github.com/MeneDev/yubi-oath-vpn/netctrl"
 	"github.com/MeneDev/yubi-oath-vpn/yubikey"
 	"github.com/MeneDev/yubi-oath-vpn/yubimonitor"
 	"github.com/jessevdk/go-flags"
-	"log"
-	"net"
-	"os"
-	"os/signal"
-	"runtime"
-	"strings"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("PANICED: %v", r)
+			evt := log.Error()
+
+			switch v := r.(type) {
+			case string:
+				evt.Str("error", v)
+			case error:
+				evt.Err(v)
+			default:
+				evt.Str("error", fmt.Sprintf("%v", v))
+			}
+
+			evt.Msg("panicked")
 		}
 	}()
+
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		NoColor:    true,
+		TimeFormat: "2006/01/02 15:04:05", // mimic golang log output
+	})
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	var opts Options
 	_, err := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash).Parse()
@@ -32,14 +52,17 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Printf("%s\n", err)
-		os.Exit(1)
+		log.Fatal().Err(err).Msg("cannot parse flags")
+	}
+
+	if opts.Debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
-		log.Printf("Canceling root context")
+		log.Debug().Msg("Canceling root context")
 		cancel()
 	}()
 
@@ -50,7 +73,7 @@ func main() {
 	title := fmt.Sprintf("Yubi VPN Mon %s", Version)
 	controller, e := gui2.GuiControllerNew(ctx, title)
 	if e != nil {
-		println(e)
+		log.Error().Err(e).Msg("cannot creat GUI")
 		return
 	}
 
@@ -58,7 +81,7 @@ func main() {
 
 	releaseMon, err := githubreleasemon.GithubReleaseMonNew(ctx, "MeneDev", "yubi-oath-vpn")
 	if err != nil {
-		log.Printf("Error checking version: %s", err.Error())
+		log.Warn().Err(err).Msg("version check failed")
 	}
 
 	interruptChan := make(chan os.Signal, 1)
@@ -67,28 +90,29 @@ func main() {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Context.Done()")
+			log.Debug().Msg("Context.Done()")
 			return
 		case yubiEvent := <-yubiChan:
-			log.Printf("yov.yubiChan %v", yubiEvent)
+			log.Debug().Interface("event", yubiEvent).Msg("yov.yubiChan")
 			if yubiEvent == nil {
-				log.Printf("yubiChan is nil")
+				log.Debug().Msg("yubiChan is nil")
 				return
 			}
 
 			key, err := yubiEvent.Open()
-			log.Printf("yubiEvent.Open: %v, %v", key, err)
 
 			if err != nil {
-				log.Printf("Error opening YubiKey: %s", err.Error())
+				log.Error().Err(err).Msg("yubiEvent.Open")
+				break
 			}
+			log.Debug().Interface("key", key).Msg("yubiEvent.Open")
 
 			if applicableYubiKey(key) {
 				connectedToTun, _ := isConnectedToTun()
 				if !connectedToTun {
 					controller.ConnectWith(key, opts.ConnectionName, opts.SlotName)
 				} else {
-					log.Printf("Connected TUN device found, not trying to connect")
+					log.Info().Msg("Connected TUN device found, not trying to connect")
 				}
 			}
 
@@ -96,19 +120,19 @@ func main() {
 			networkController.Connect(conParams.Context, conParams.ConnectionId, conParams.Code)
 
 		case ev := <-networkController.ConnectionResults():
-			log.Printf("networkController.ConnectionResults: %v", ev)
+			log.Debug().Str("result", ev.String()).Msg("networkController.ConnectionResults")
 			controller.ConnectionResult(ev)
 
 		case release := <-releaseMon.ReleaseChan():
 			if release.Error != nil {
-				log.Printf("Error checking release: %s", release.Error.Error())
+				log.Warn().Err(err).Msg("checking release failed")
 			} else {
-				log.Printf("Latest release: %v", release.Release.TagName)
+				log.Debug().Str("version", release.Release.TagName).Msg("latest release")
 				controller.SetLatestVersion(release.Release)
 			}
 
 		case <-interruptChan:
-			log.Printf("Received Interrupt, shutting down")
+			log.Info().Msg("Received Interrupt, shutting down")
 			return
 		}
 	}
@@ -130,7 +154,7 @@ func isConnectedToTun() (bool, error) {
 			continue
 		}
 
-		log.Printf("Found interface in up state %s", iface.Name)
+		log.Info().Str("interface", iface.Name).Msg("Found interface in up state")
 		if strings.HasPrefix(iface.Name, "tun") {
 			return true, nil
 		}

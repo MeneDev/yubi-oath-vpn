@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type GithubReleaseMon interface {
@@ -28,21 +29,21 @@ func getLatestRelease(url string) (*Release, error) {
 	resp, err := http.Get(url)
 
 	if err != nil {
-		log.Printf("Error: %s", err.Error())
+		log.Warn().Err(err).Msg("cannot retrieve latest release info")
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Printf("Error: %s", err.Error())
+		log.Warn().Err(err).Msg("cannot read latest release info")
 		return nil, err
 	}
 
 	release := &Release{}
 	err = json.Unmarshal(body, release)
 	if err != nil {
-		log.Printf("Error: %s", err.Error())
+		log.Warn().Err(err).Msg("cannot unmarshal latest release info")
 		return nil, err
 	}
 
@@ -67,7 +68,7 @@ func GithubReleaseMonNew(ctx context.Context, user string, project string) (Gith
 				timeout = 1 * time.Minute
 				mon.channel <- ReleaseInfo{Error: e}
 			} else {
-				log.Printf("version: %s url: %s", release.TagName, release.HtmlUrl)
+				log.Debug().Str("version", release.TagName).Str("url", release.HtmlUrl).Msg("github latest release info")
 				mon.channel <- ReleaseInfo{Release: *release}
 			}
 

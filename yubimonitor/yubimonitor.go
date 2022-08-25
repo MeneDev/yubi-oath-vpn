@@ -2,11 +2,12 @@ package yubimonitor
 
 import (
 	"context"
+
 	"github.com/MeneDev/yubi-oath-vpn/scardmonitor"
 	"github.com/MeneDev/yubi-oath-vpn/yubikey"
 	scardyubi "github.com/MeneDev/yubi-oath-vpn/yubikey/scard"
 	"github.com/ebfe/scard"
-	"log"
+	"github.com/rs/zerolog/log"
 )
 
 type InsertionEvent interface {
@@ -27,10 +28,10 @@ func (s scardYubiMonitorInsertedEvent) Id() string {
 }
 
 func (s scardYubiMonitorInsertedEvent) Open() (yubikey.YubiKey, error) {
-	log.Printf("Creating yubikey.YubiKey for device: %s", s.id)
+	log.Debug().Str("device", s.id).Msg("Creating yubikey.YubiKey for device")
 	scardCtx, err := scard.EstablishContext()
 	if err != nil {
-		log.Printf("Creating yubikey.YubiKey for device %s: %s", s.id, err.Error())
+		log.Error().Err(err).Str("device", s.id).Msg("Error creating yubikey.YubiKey for device")
 	}
 	return scardyubi.YubiKeyNew(s.ctx, scardCtx, s.id)
 }
@@ -46,12 +47,10 @@ func YubiMonitorNew(ctx context.Context) (YubiMonitor, error) {
 	scardMon, _ := scardmonitor.ScardMonNew(ctx)
 	scardStatusChan := scardMon.StatusChannel()
 
-	log.Printf("scardStatusChan: %v", scardStatusChan)
-
 	yubiMon.insertedEvent = make(chan InsertionEvent)
 	go func() {
 		defer func() {
-			log.Printf("Stopping YubiMonitor")
+			log.Info().Msg("Stopping YubiMonitor")
 			cancel()
 			close(yubiMon.insertedEvent)
 		}()
@@ -61,7 +60,7 @@ func YubiMonitorNew(ctx context.Context) (YubiMonitor, error) {
 			case <-ctx.Done():
 				return
 			case s := <-scardStatusChan:
-				log.Printf("Reveiced: %v", s)
+				log.Debug().Str("status", s.Id()).Msg("Received SCard status")
 				if s.Presence() == scardmonitor.Available {
 					yubiMon.insertedEvent <- scardYubiMonitorInsertedEvent{ctx: s.Context(), scardCtx: s.ScardContext(), id: s.Id()}
 				}

@@ -2,13 +2,15 @@ package gui2
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"runtime"
+	"sync"
+
 	"github.com/MeneDev/yubi-oath-vpn/githubreleasemon"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
-	"runtime"
-	"sync"
 )
 
 type gtkGui struct {
@@ -173,33 +175,34 @@ func gtkGuiNew(ctx context.Context, title string, handlers eventHandlers) (*gtkG
 		spnConnecting.Stop()
 		lblConnect.SetLabel("")
 
-		_, err = win.Connect("destroy", handlers.onDestroy)
-		if err != nil {
-			errCh <- err
+		var sigHandle glib.SignalHandle
+		sigHandle = win.Connect("destroy", handlers.onDestroy)
+		if sigHandle == 0 {
+			errCh <- errors.New("creating GTK handler for destroy window event failed")
 			return
 		}
 
-		_, err = win.Connect("key-press-event", handlers.onWinKeyPress)
-		if err != nil {
-			errCh <- err
+		sigHandle = win.Connect("key-press-event", handlers.onWinKeyPress)
+		if sigHandle == 0 {
+			errCh <- errors.New("creating GTK handler for key-press-event on window failed")
 			return
 		}
 
-		_, err = btnConnect.Connect("clicked", handlers.onBtnConnectClicked)
-		if err != nil {
-			errCh <- err
+		sigHandle = btnConnect.Connect("clicked", handlers.onBtnConnectClicked)
+		if sigHandle == 0 {
+			errCh <- errors.New("creating GTK handler for clicked on connect button failed")
 			return
 		}
 
-		_, err = txtPassword.Connect("key-press-event", handlers.onPasswordKeyPress)
-		if err != nil {
-			errCh <- err
+		sigHandle = txtPassword.Connect("key-press-event", handlers.onPasswordKeyPress)
+		if sigHandle == 0 {
+			errCh <- errors.New("creating GTK handler for key-press-event on password field failed")
 			return
 		}
 
-		_, err = btnCancel.Connect("clicked", handlers.onBtnCancelClicked)
-		if err != nil {
-			errCh <- err
+		sigHandle = btnCancel.Connect("clicked", handlers.onBtnCancelClicked)
+		if sigHandle == 0 {
+			errCh <- errors.New("creating GTK handler for clicked on cancel button failed")
 			return
 		}
 
