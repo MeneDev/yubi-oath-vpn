@@ -24,8 +24,8 @@ RUN mkdir /go/bin
 ENV GOPATH /go
 ENV PATH "$PATH:$GOPATH/bin"
 
-RUN go get -u github.com/tcnksm/ghr \
-    && go get -u github.com/stevenmatthewt/semantics
+RUN curl -sL https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz | tar -xz  --strip-components=1 --directory "$GOPATH/bin" ghr_v0.15.0_linux_amd64/ghr
+RUN go get -u github.com/stevenmatthewt/semantics
 
 RUN curl -L -s https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64 -o /go/bin/dep \
     && chmod +x /go/bin/dep
