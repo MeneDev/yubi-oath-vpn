@@ -3,12 +3,12 @@ package gui2
 import (
 	"context"
 	"errors"
-	"fmt"
+
 	"github.com/MeneDev/yubi-oath-vpn/yubierror"
 	"github.com/MeneDev/yubi-oath-vpn/yubikey"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/looplab/fsm"
-	"log"
+	"github.com/rs/zerolog/log"
 )
 
 const stateHidden = "stateHidden"
@@ -50,7 +50,9 @@ func (ctrl *guiController) initFsm() {
 			{Name: evDone, Src: []string{stateConnected}, Dst: stateHidden},
 		},
 		fsm.Callbacks{
-			"enter_state":              func(e *fsm.Event) { fmt.Printf("%s -%s-> %s\n", e.Src, e.Event, e.Dst) },
+			"enter_state": func(e *fsm.Event) {
+				log.Info().Str("old", e.Src).Str("event", e.Event).Str("new", e.Dst).Msg("transitioning state")
+			},
 			"enter_" + stateHidden:     ctrl.enterHidden,
 			"enter_" + statePrepare:    ctrl.enterPrepare,
 			"enter_" + stateAskPass:    ctrl.enterAskPass,
@@ -106,17 +108,16 @@ func (ctrl *guiController) leavePrepare(e *fsm.Event) {
 
 func (ctrl *guiController) enterAskPass(e *fsm.Event) {
 	args := e.Args
-	log.Printf("enterAskPass, args: %v", args)
+	log.Debug().Interface("args", args).Msg("enterAskPass")
 	ctrl.gtkGui.reset()
 	if e.Event == evWrongPassword {
 		ctrl.gtkGui.SetError(yubierror.ErrorWrongPassword)
 	}
 	if e.Event == evConnectionError {
-		log.Printf("enterAskPass, evConnectionError")
+		log.Error().Err(e.Err).Msg("enterAskPass evConnectionError")
 		if args != nil && len(args) > 0 {
-			log.Printf("enterAskPass, err: %v", args[0])
 			message := args[0].(string)
-			log.Printf("enterAskPass, err: %s", message)
+			log.Debug().Str("error_message", message).Msg("setting GTK error message")
 			ctrl.gtkGui.SetError(errors.New(message))
 		} else {
 			ctrl.gtkGui.SetError(errors.New("unknown Error"))
@@ -143,10 +144,8 @@ func (ctrl *guiController) enterConnecting(e *fsm.Event) {
 	password := e.Args[0].(string)
 	code, err := ctrl.yubiKey.GetCodeWithPassword(password, ctrl.slotName)
 
-	println("code", code)
-	println("err", err)
-
 	if err != nil {
+		log.Error().Err(err).Msg("error getting code from yubikey")
 		if err == yubierror.ErrorWrongPassword {
 			ctrl.sendEvent(evWrongPassword)
 		}
@@ -154,6 +153,8 @@ func (ctrl *guiController) enterConnecting(e *fsm.Event) {
 		// TODO: other cases
 		return
 	}
+
+	log.Debug().Str("code", code).Msg("code from yubikey")
 
 	ctx, cancel := context.WithCancel(context.Background())
 

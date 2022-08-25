@@ -11,49 +11,52 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e4016aefe64a6fccca80d9aad4f8275ee519894c4f79c6079d96d49b9c4173b8"
+  digest = "1:6d891a7eab2c0cb3d466ad175c9fab506c625af2e14b5719d46fba8b2526b05c"
   name = "github.com/ebfe/scard"
   packages = ["."]
   pruneopts = "UT"
-  revision = "136eebbd7d749e6354ed1bb105b88f89c7d80b03"
+  revision = "c3d1b1916a9547038c82830d7e99fa36b85a2682"
 
 [[projects]]
   branch = "master"
-  digest = "1:52c015ac30995214fac512676480e61149e2f8a457c8061b75b8a2a447daaee6"
+  digest = "1:9f24a8c0b3ce576f1b5d3cbe891a59f081399199d5eb9455912ca8c320fdc045"
   name = "github.com/google/gousb"
   packages = ["."]
   pruneopts = "UT"
-  revision = "92967a7d1098e3bc2a1cd0fcb652ca3c331a4419"
+  revision = "844d4b8a718f46eb580a7a84afa00eb15c1b7a9a"
 
 [[projects]]
   branch = "master"
-  digest = "1:82945edd935e58b085182b1dfbffeee208500da1f29940b1061493b4e94a57b4"
+  digest = "1:6cd0f3a7bda59da23f2999f801d51fd27f3b7472059eb5f85e57f3ac181e11e7"
   name = "github.com/gotk3/gotk3"
   packages = [
     "cairo",
     "gdk",
     "glib",
     "gtk",
+    "internal/callback",
+    "internal/closure",
+    "internal/slab",
     "pango",
   ]
   pruneopts = "UT"
-  revision = "80205b7ba46b599a304c62e17b6d155bda664ccc"
+  revision = "d885f48a549210495b31e2e7360c2561139bf82c"
 
 [[projects]]
-  digest = "1:a2cff208d4759f6ba1b1cd228587b0a1869f95f22542ec9cd17fff64430113c7"
+  digest = "1:2aedbd3f7dae4d1bda04de4d1a48b884e3162e8be35db92e1eff5d707d345075"
   name = "github.com/jessevdk/go-flags"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c6ca198ec95c841fdb89fc0de7496fed11ab854e"
-  version = "v1.4.0"
+  revision = "1878de27329cba29066dc088d84b3ce743885f82"
+  version = "v1.5.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:312b66e73aa2bb084b7b7d6489fa386dd56b27d848ccb1288b7a0c5a3c9defdb"
+  digest = "1:96e2e68cc63ed2010448ebbad799e16d25bcdc997a23dc7722bb5fb70d950be6"
   name = "github.com/jkeiser/iter"
   packages = ["."]
   pruneopts = "UT"
-  revision = "67b94d6149c6b2efe0fde15d36a50a7692c2da17"
+  revision = "c8aa0ae784d15ad3cb2a1f1579768e46f6e87fe5"
 
 [[projects]]
   branch = "master"
@@ -72,12 +75,28 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:cf31692c14422fa27c83a05292eb5cbe0fb2775972e8f1f8446a71549bd8980b"
+  digest = "1:0299da337d6671be3dddddd785f2af0247675f0331679cbbe929cc9e874335b4"
+  name = "github.com/mattn/go-colorable"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "11a925cff3d38c293ddc8c05a16b504e3e2c63be"
+  version = "v0.1.13"
+
+[[projects]]
+  digest = "1:0a3de24cb5c1cb71a845a9a906684c31411b141dc34c6325ec71d11be35c0208"
+  name = "github.com/mattn/go-isatty"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "13e91bf4058fb93d5629deb7b2e3763ec8f4fdf8"
+  version = "v0.0.16"
+
+[[projects]]
+  digest = "1:9e1d37b58d17113ec3cb5608ac0382313c5b59470b94ed97d0976e69c7022314"
   name = "github.com/pkg/errors"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ba968bfe8b2f7e042a574c888954fccecfa385b4"
-  version = "v0.8.1"
+  revision = "614d223910a179a466c1767a985424175c39b465"
+  version = "v0.9.1"
 
 [[projects]]
   digest = "1:0028cb19b2e4c3112225cd871870f2d9cf49b9b4276531f03438a88e94be86fe"
@@ -88,32 +107,54 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:972c2427413d41a1e06ca4897e8528e5a1622894050e2f527b38ddf0f343f759"
+  digest = "1:85e9712268146f14f706d6c624c597758e382e67110a52c6906911303a83cef2"
+  name = "github.com/rs/zerolog"
+  packages = [
+    ".",
+    "internal/cbor",
+    "internal/json",
+    "log",
+  ]
+  pruneopts = "UT"
+  revision = "e9344a8c507b5f25a4962ff022526be0ddab8e72"
+  version = "v1.27.0"
+
+[[projects]]
+  digest = "1:727d7f937cef2eab51f67366afc51c77071369532467d96251722a3dfd8894c0"
   name = "github.com/stretchr/testify"
   packages = ["assert"]
   pruneopts = "UT"
-  revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
-  version = "v1.3.0"
+  revision = "181cea6eab8b2de7071383eca4be32a424db38dd"
+  version = "v1.8.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:f92f6956e4059f6a3efc14924d2dd58ba90da25cc57fe07ae3779ef2f5e0c5f2"
+  digest = "1:eb1238df8add852f8ea2808861aaf28f1fbb3c1e385617ef54c7283bc2ce436f"
   name = "golang.org/x/crypto"
   packages = ["pbkdf2"]
   pruneopts = "UT"
-  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
+  revision = "5757bc0c5503e9832a646fcf49ea46445f253091"
 
 [[projects]]
   branch = "master"
-  digest = "1:6edde08c09ee6df91604cb06838f2e713e1257aaeffbf85ade247c19c816f07f"
+  digest = "1:a94f178a7324afa93a402b098aba116d718229e39f7679514929184cc002e584"
   name = "golang.org/x/sys"
   packages = [
+    "internal/unsafeheader",
     "unix",
     "windows",
     "windows/registry",
   ]
   pruneopts = "UT"
-  revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
+  revision = "20c2bfdbfe249b02ea905477d7cff52673dadfa2"
+
+[[projects]]
+  digest = "1:0d58f1f9964495f627de70f2db37d14c39dca5ee41f49739ea7dffcbc84dd84d"
+  name = "gopkg.in/yaml.v3"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f6f7691b1fdeb513f56608cd2c32c51f8194bf51"
+  version = "v3.0.1"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -128,6 +169,8 @@
     "github.com/jochenvg/go-udev",
     "github.com/looplab/fsm",
     "github.com/pkg/errors",
+    "github.com/rs/zerolog",
+    "github.com/rs/zerolog/log",
     "github.com/stretchr/testify/assert",
     "golang.org/x/crypto/pbkdf2",
     "golang.org/x/sys/windows",

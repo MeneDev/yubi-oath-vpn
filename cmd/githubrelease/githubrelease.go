@@ -3,8 +3,9 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 )
 
 type githubRelease struct {

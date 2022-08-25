@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"github.com/MeneDev/yubi-oath-vpn/scardmonitor"
 	"log"
 	"os"
 	"os/signal"
+
+	"github.com/MeneDev/yubi-oath-vpn/scardmonitor"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 		log.Printf("Waiting for scardStatusChan or signalChan")
 		select {
 		case s := <-scardStatusChan:
-			fmt.Printf("scard id: %s, %v\n", s.Id(), s.Presence())
+			log.Printf("scard id: %s, %v\n", s.Id(), s.Presence())
 		case <-signalChan:
 			log.Printf("Crtl+C")
 			return

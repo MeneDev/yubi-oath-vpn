@@ -7,9 +7,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -54,14 +54,14 @@ type openVpnGuiConnector struct {
 }
 
 func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName string, code string) {
-	log.Printf("Connecting to %s with code %s", connectionName, code)
+	log.Debug().Str("connection", connectionName).Str("code", code).Msg("Connecting")
 	storePassword(connectionName, code)
 
 	go func() {
 
 		reg, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\OpenVPN`, registry.QUERY_VALUE)
 		if err != nil {
-			log.Print(err)
+			log.Error().Err(err).Msg("error opening registry key")
 			ctor.resultsChan <- &nmcliResult{message: err.Error(), success: false}
 			return
 		}
@@ -70,19 +70,19 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 
 		exePath, _, err := reg.GetStringValue(`exe_path`)
 		if err != nil {
-			log.Print(err)
+			log.Error().Err(err).Msg("error reading exe_path")
 			ctor.resultsChan <- &nmcliResult{message: err.Error(), success: false}
 			return
 		}
-		log.Printf("exePath: %s\n", exePath)
+		log.Debug().Msg("exePath: " + exePath)
 
 		logDir, _, err := reg.GetStringValue(`log_dir`)
 		if err != nil {
-			log.Print(err)
+			log.Error().Err(err).Msg("error reading log_dir")
 			ctor.resultsChan <- &nmcliResult{message: err.Error(), success: false}
 			return
 		}
-		log.Printf("logDir: %s\n", logDir)
+		log.Debug().Msg("logDir: " + logDir)
 
 		openVpnBin := filepath.Dir(exePath)
 
@@ -91,32 +91,32 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 		exe := filepath.Join(openVpnBin, "openvpn-gui.exe")
 		logPath := filepath.Join(homeDir, "OpenVPN", "log", connectionName+".log")
 
-		log.Printf("exe: %s\n", exe)
-		log.Printf("logPath: %s\n", logPath)
+		log.Debug().Msg("exe: " + exe)
+		log.Debug().Msg("logPath: " + logPath)
 
-		log.Printf("Set silence\n")
+		log.Debug().Msg("Set silence")
 		if err := execute(ctx, exe, "--command", "silent_connection", "1"); err != nil {
-			log.Print(err)
+			log.Error().Err(err).Msg("error setting silence")
 			ctor.resultsChan <- &nmcliResult{message: err.Error(), success: false}
 			return
 		}
-		log.Printf("Set silence ok\n")
+		log.Debug().Msg("Set silence ok")
 
-		log.Printf("Trigger connection\n")
+		log.Debug().Msg("Trigger connection\n")
 		if err := execute(ctx, exe, "--command", "connect", connectionName); err != nil {
-			log.Print(err)
+			log.Error().Err(err).Msg("error triggering connection")
 			ctor.resultsChan <- &nmcliResult{message: err.Error(), success: false}
 			return
 		}
-		log.Printf("Trigger connection ok\n")
+		log.Debug().Msg("Trigger connection ok")
 
-		log.Printf("Unset silence\n")
+		log.Debug().Msg("Unset silence")
 		if err := execute(ctx, exe, "--command", "silent_connection", "1"); err != nil {
-			log.Print(err)
+			log.Error().Err(err).Msg("error unsetting silence")
 			ctor.resultsChan <- &nmcliResult{message: err.Error(), success: false}
 			return
 		}
-		log.Printf("Unset silence ok\n")
+		log.Debug().Msg("Unset silence ok")
 
 		followContext, followCancel := context.WithCancel(ctx)
 		linesChan := make(chan lineError)
@@ -144,13 +144,13 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 		for connecting {
 			select {
 			case <-ctx.Done():
-				log.Printf("Context canceled\n")
+				log.Debug().Msg("Context canceled\n")
 
 				ctor.resultsChan <- &nmcliResult{message: "Canceled", success: false}
 				return
 			case lineError := <-linesChan:
 				if lineError.err != nil {
-					log.Print(lineError.err)
+					log.Error().Err(lineError.err).Msg("error received")
 					ctor.resultsChan <- &nmcliResult{message: lineError.err.Error(), success: false}
 					hasError = true
 					connecting = false
@@ -158,19 +158,19 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 				}
 
 				line := lineError.line
-				log.Printf("log: %s\n", line)
+				log.Debug().Str("line", line).Msg("openvpn log line")
 
 				loglines = append(loglines, line)
 
 				if strings.Contains(line, "Restart pause") || strings.Contains(line, "AUTH_FAILED") || strings.Contains(line, "ERROR") {
-					log.Printf("found error\n")
+					log.Warn().Str("line", line).Msg("found error")
 					hasError = true
 					connecting = false
 					break
 				}
 				// <Date> MANAGEMENT: >STATE:1548773463,CONNECTED,SUCCESS,10.111.60.17,212.23.151.151,1194,,
 				if strings.Contains(line, "MANAGEMENT") && strings.Contains(line, "CONNECTED,SUCCESS") {
-					log.Printf("found success\n")
+					log.Info().Str("line", line).Msg("connection successful")
 					ctor.resultsChan <- &nmcliResult{message: "Done", success: true}
 					connecting = false
 					break
@@ -183,15 +183,15 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 			disconnect := true
 			for disconnect {
 				disconnect = false
-				log.Printf("sending disconnect\n")
+				log.Info().Msg("sending disconnect")
 				if err := execute(ctx, exe, "--command", "disconnect", connectionName); err != nil {
 					disconnect = true
 					time.Sleep(100 * time.Millisecond)
 
-					log.Printf("could not disconnect: %s", err.Error())
+					log.Warn().Err(err).Msg("could not disconnect")
 				}
 			}
-			log.Printf("sending disconnect: done")
+			log.Info().Msg("sending disconnect: done")
 		}
 
 		ctor.resultsChan <- &nmcliResult{message: strings.Join(loglines, "\n"), success: false}
@@ -199,23 +199,21 @@ func (ctor *openVpnGuiConnector) Connect(ctx context.Context, connectionName str
 }
 
 func storePassword(connectionName string, code string) {
-	k, err := registry.OpenKey(registry.CURRENT_USER, `SOFTWARE\OpenVPN-GUI\configs\` + connectionName, registry.QUERY_VALUE|registry.WRITE)
+	k, err := registry.OpenKey(registry.CURRENT_USER, `SOFTWARE\OpenVPN-GUI\configs\`+connectionName, registry.QUERY_VALUE|registry.WRITE)
 	if err != nil {
-		println(1)
-		log.Print(err)
+		log.Error().Int("stage", 1).Err(err).Msg("error storing password")
 		return
 	}
 	defer k.Close()
 
 	entropy, _, err := k.GetBinaryValue("entropy")
 	if err != nil {
-		println(2)
-		log.Print(err)
+		log.Error().Int("stage", 2).Err(err).Msg("error storing password")
 		return
 	}
 	entropy = entropy[:len(entropy)-1]
 
-	fmt.Printf("% x \n", entropy)
+	log.Debug().Hex("entropy", entropy).Msg("")
 
 	utfCode, err := windows.UTF16FromString(code)
 
@@ -223,23 +221,20 @@ func storePassword(connectionName string, code string) {
 
 	err = binary.Write(buffer, binary.LittleEndian, utfCode)
 	if err != nil {
-		println(5)
-		log.Print(err)
+		log.Error().Int("stage", 5).Err(err).Msg("error storing password")
 		return
 	}
 
 	byteCode := buffer.Bytes()
 	encrypt, err := Encrypt(byteCode, entropy)
 	if err != nil {
-		println(6)
-		log.Print(err)
+		log.Error().Int("stage", 6).Err(err).Msg("error storing password")
 		return
 	}
 
 	err = k.SetBinaryValue("auth-data", encrypt)
 	if err != nil {
-		println(7)
-		log.Print(err)
+		log.Error().Int("stage", 7).Err(err).Msg("error storing password")
 		return
 	}
 }
@@ -351,12 +346,12 @@ func execute(ctx context.Context, name string, args ...string) error {
 		return err
 	}
 
-	log.Printf("executing %s, %v", name, args)
+	log.Debug().Str("name", name).Interface("args", args).Msg("executing command")
 	if err := subProcess.Wait(); err != nil {
 		return err
 	}
 
-	log.Printf("executing %s, %v: done", name, args)
+	log.Debug().Str("name", name).Interface("args", args).Msg("executing command finished")
 
 	stderrStr := stderr.String()
 	if stderrStr != "" {

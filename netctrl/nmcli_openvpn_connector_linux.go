@@ -3,9 +3,10 @@ package netctrl
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os/exec"
+
+	"github.com/rs/zerolog/log"
 )
 
 func DefaultNetworkController(ctx context.Context) NetworkController {
@@ -57,14 +58,14 @@ func (ctor *nmcliOpenVpnConnector) Connect(ctx context.Context, connectionName s
 		subProcess.Stderr = stderr
 
 		if err = subProcess.Start(); err != nil { //Use start, not run
-			fmt.Println("An error occured: ", err) //replace with logger, or anything you want
+			log.Error().Err(err).Msg("could not start nmcli")
 		}
 
 		io.WriteString(stdin, "vpn.secrets.password:"+code+"\n")
 		stdin.Close()
-		println("start connecting via nmcli")
+		log.Debug().Msg("start connecting via nmcli")
 		subProcess.Wait()
-		println("finished connecting via nmcli")
+		log.Debug().Msg("finished connecting via nmcli")
 
 		stderrStr := stderr.String()
 		if stderrStr != "" {

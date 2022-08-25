@@ -1,14 +1,13 @@
-// +build linux windows
-
 package scardmonitor
 
-import "C"
 import (
 	"context"
-	"github.com/ebfe/scard"
-	"log"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
+
+	"github.com/ebfe/scard"
 )
 
 type ReaderPresence int
@@ -141,11 +140,11 @@ func (mon *scardMon) updateLoop() {
 		if ctx != nil {
 			errCancel := ctx.Cancel()
 			if errCancel != nil {
-				log.Printf("Could not cancel scard context: %s", errCancel.Error())
+				log.Warn().Err(errCancel).Msg("Could not cancel scard context")
 			}
 			errRelease := ctx.Release()
 			if errRelease != nil {
-				log.Printf("Could not release scard context: %s", errRelease.Error())
+				log.Warn().Err(errRelease).Msg("Could not release scard context")
 			}
 		}
 	}
@@ -175,7 +174,7 @@ func (mon *scardMon) updateLoop() {
 			var err error
 			ctx, err = scard.EstablishContext()
 			if err != nil {
-				log.Printf("Could not establish scard context: %s", err.Error())
+				log.Warn().Err(err).Msg("Could not establish scard context")
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
@@ -183,11 +182,10 @@ func (mon *scardMon) updateLoop() {
 
 		if deviceListOutdated {
 			var err error
-			log.Printf("Listing scard readers")
+			log.Info().Msg("Listing scard readers")
 			readers, err = ctx.ListReaders()
 			if err != nil {
-				log.Printf("Could not list scard readers: %s", err.Error())
-				log.Printf("Assuming broken context")
+				log.Error().Err(err).Msg("Could not list scard readers, assuming broken context")
 				contextBroken = true
 				time.Sleep(100 * time.Millisecond)
 				continue
@@ -196,7 +194,7 @@ func (mon *scardMon) updateLoop() {
 
 				for _, reader := range readers {
 					if _, ok := listedReaders[reader]; !ok {
-						log.Printf("Start observing scard reader %s", reader)
+						log.Info().Str("reader", reader).Msg("Start observing scard reader")
 						listedReaders[reader] = len(states)
 						states = append(states, scard.ReaderState{
 							Reader:       reader,
@@ -208,21 +206,21 @@ func (mon *scardMon) updateLoop() {
 			}
 		}
 
-		log.Printf("Start GetStatusChange with %s", readersString(states))
+		log.Debug().Msg("Start GetStatusChange with " + readersString(states))
 		err := ctx.GetStatusChange(states, -1)
 		if err != nil {
-			log.Printf("GetStatusChange error: %s", err.Error())
+			log.Warn().Err(err).Msg("GetStatusChange error")
 			if err == scard.ErrUnknownReader {
 				deviceListOutdated = true
 				continue
 			}
 		}
 
-		log.Printf("Finish GetStatusChange with %s", readersString(states))
+		log.Debug().Msg("Finish GetStatusChange with " + readersString(states))
 
 		pseudoDevice := states[0]
 		if pseudoDevice.EventState&scard.StateChanged != 0 {
-			log.Printf("Pseudo device reported change")
+			log.Debug().Msg("Pseudo device reported change")
 			deviceListOutdated = true
 		}
 
@@ -232,11 +230,15 @@ func (mon *scardMon) updateLoop() {
 			state := states[i]
 
 			if (state.EventState & ^scard.StateChanged) != state.CurrentState {
-				log.Printf("Reader %s changed from (%s) to (%s)", state.Reader, formatStateFlags(state.CurrentState), formatStateFlags(state.EventState & ^scard.StateChanged))
+				log.Debug().
+					Str("old", formatStateFlags(state.CurrentState)).
+					Str("new", formatStateFlags(state.EventState & ^scard.StateChanged)).
+					Str("reader", state.Reader).
+					Msg("Reader state changed")
 			}
 
 			if state.CurrentState&scard.StatePresent == 0 && state.EventState&scard.StatePresent != 0 {
-				log.Printf("Reader %s became available", state.Reader)
+				log.Info().Str("reader", state.Reader).Msg("Reader became available")
 
 				cancelCtx, cancel := context.WithCancel(mon.ctx)
 				state.UserData = cancel
@@ -251,7 +253,7 @@ func (mon *scardMon) updateLoop() {
 
 			removed := false
 			if state.CurrentState&scard.StatePresent != 0 && state.EventState&scard.StatePresent == 0 {
-				log.Printf("Reader %s removed", state.Reader)
+				log.Info().Str("reader", state.Reader).Msg("Reader removed")
 				removed = true
 				//mon.readerPresenceChan <- scardChangeEvent{
 				//	id:       state.Reader,
@@ -317,9 +319,9 @@ func (mon *scardMon) waitAndUpdate() error {
 	ctx := mon.scardChangeCtx
 	magicNotificationDevice := "\\\\?PnP?\\Notification"
 	rs := append([]scard.ReaderState{}, scard.ReaderState{Reader: magicNotificationDevice, CurrentState: scard.StateUnaware})
-	log.Printf("Start GetStatusChange with pseudo device")
+	log.Debug().Msg("Start GetStatusChange with pseudo device")
 	err := ctx.GetStatusChange(rs, -1)
-	log.Printf("Finish GetStatusChange with pseudo device")
+	log.Debug().Msg("Finish GetStatusChange with pseudo device")
 	mon.updateLoop()
 	return err
 }
@@ -333,7 +335,7 @@ func (mon *scardMon) updateReadyReaders(newReadyReaders map[string]readyReaderIn
 			s.cancel = cancel
 
 			newReadyReaders[k] = s
-			log.Printf("Send available")
+			log.Debug().Msg("Send available")
 			mon.readerPresenceChan <- scardChangeEvent{
 				id:       s.reader,
 				presence: Available,
@@ -347,7 +349,7 @@ func (mon *scardMon) updateReadyReaders(newReadyReaders map[string]readyReaderIn
 		if _, known := newReadyReaders[k]; !known {
 			// removed
 
-			log.Printf("Send removed")
+			log.Debug().Msg("Send removed")
 			mon.readerPresenceChan <- scardChangeEvent{
 				id:       s.reader,
 				presence: Unavailable,

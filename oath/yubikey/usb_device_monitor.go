@@ -3,6 +3,7 @@ package yubikey
 import (
 	"context"
 	"fmt"
+
 	"github.com/google/gousb"
 	"github.com/jochenvg/go-udev"
 )
@@ -80,7 +81,7 @@ func (mon *udevDeviceMonitor) Monitor() (chan DeviceChangeEvent, error) {
 	go func() {
 		mon.checkDevices()
 
-		//fmt.Println("Started listening on statusChannel")
+		//log.Debug().Msg("Started listening on statusChannel")
 		for d := range ch {
 			action := d.Action()
 

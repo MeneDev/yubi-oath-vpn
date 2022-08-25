@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"golang.org/x/sys/windows"
-	"golang.org/x/sys/windows/registry"
-	"log"
 	"syscall"
 	"unsafe"
+
+	"github.com/rs/zerolog/log"
+	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
 
 var (
@@ -65,44 +66,35 @@ func Decrypt(data []byte, entropy []byte) ([]byte, error) {
 func main() {
 	k, err := registry.OpenKey(registry.CURRENT_USER, `SOFTWARE\OpenVPN-GUI\configs\client`, registry.QUERY_VALUE|registry.WRITE)
 	if err != nil {
-		println(1)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 1).Msg("error")
 	}
 	defer k.Close()
 
 	entropy, _, err := k.GetBinaryValue("entropy")
 	if err != nil {
-		println(2)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 2).Msg("error")
 	}
 	entropy = entropy[:len(entropy)-1]
 
 	authData, _, err := k.GetBinaryValue("auth-data")
 	if err != nil {
-		println(3)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 3).Msg("error")
 	}
 
-	fmt.Printf("% x \n", entropy)
-	fmt.Printf("% x \n", authData)
-
 	encData, err := Decrypt(authData, entropy)
-	fmt.Printf("% x \n", encData)
+	log.Debug().Hex("entropy", entropy).Hex("auth-data", authData).Hex("enc-data", encData).Msg("")
 
 	out := make([]uint16, len(encData)/2)
 	err = binary.Read(bytes.NewReader(encData), binary.LittleEndian, out)
 	if err != nil {
-		println(5)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 5).Msg("error")
 	}
 
 	s := windows.UTF16ToString(out)
 	if err != nil {
-		println(4)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 4).Msg("error")
 	}
 
-	fmt.Printf("encData=%v\n", encData)
 	fmt.Printf("encData=%s\n", s)
 
 	code := "123456"
@@ -113,21 +105,18 @@ func main() {
 
 	err = binary.Write(buffer, binary.LittleEndian, utfCode)
 	if err != nil {
-		println(5)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 5).Msg("error")
 	}
 
 	byteCode := buffer.Bytes()
 	encrypt, err := Encrypt(byteCode, entropy)
 	if err != nil {
-		println(6)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 6).Msg("error")
 	}
 
 	err = k.SetBinaryValue("auth-data", encrypt)
 	if err != nil {
-		println(7)
-		log.Fatal(err)
+		log.Fatal().Err(err).Int("state", 7).Msg("error")
 	}
 
 }
