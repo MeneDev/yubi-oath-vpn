@@ -1,4 +1,4 @@
-FROM fedora:29
+FROM fedora:37
 
 RUN dnf install -y \
         findutils \
@@ -25,7 +25,7 @@ ENV GOPATH /go
 ENV PATH "$PATH:$GOPATH/bin"
 
 RUN curl -sL https://github.com/tcnksm/ghr/releases/download/v0.15.0/ghr_v0.15.0_linux_amd64.tar.gz | tar -xz  --strip-components=1 --directory "$GOPATH/bin" ghr_v0.15.0_linux_amd64/ghr
-RUN go get -u github.com/stevenmatthewt/semantics
+RUN go install github.com/stevenmatthewt/semantics@v2.0.0
 
 RUN curl -L -s https://github.com/golang/dep/releases/download/v0.5.0/dep-linux-amd64 -o /go/bin/dep \
     && chmod +x /go/bin/dep
