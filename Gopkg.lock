@@ -27,20 +27,17 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6cd0f3a7bda59da23f2999f801d51fd27f3b7472059eb5f85e57f3ac181e11e7"
+  digest = "1:82945edd935e58b085182b1dfbffeee208500da1f29940b1061493b4e94a57b4"
   name = "github.com/gotk3/gotk3"
   packages = [
     "cairo",
     "gdk",
     "glib",
     "gtk",
-    "internal/callback",
-    "internal/closure",
-    "internal/slab",
     "pango",
   ]
   pruneopts = "UT"
-  revision = "d885f48a549210495b31e2e7360c2561139bf82c"
+  revision = "80205b7ba46b599a304c62e17b6d155bda664ccc"
 
 [[projects]]
   digest = "1:2aedbd3f7dae4d1bda04de4d1a48b884e3162e8be35db92e1eff5d707d345075"
