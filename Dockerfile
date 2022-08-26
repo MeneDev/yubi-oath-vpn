@@ -1,16 +1,14 @@
-FROM menedev/yubi-oath-vpn-builder:latest
+# requires buildkit for caching; run: DOCKER_BUILDKIT=1 docker build -t yubi-oath-vpn .
 
-ENV GOCACHE=/tmp/go/cache
-RUN mkdir -p $GOCACHE
+FROM yubi-oath-vpn-builder:latest
 
-# build dependencies
+# download dependencies
 RUN mkdir -p /go/src/github.com/MeneDev/yubi-oath-vpn
 WORKDIR /go/src/github.com/MeneDev/yubi-oath-vpn
-COPY Gopkg.* ./
-RUN /go/bin/dep ensure --vendor-only
-RUN find vendor/ -maxdepth 3 -mindepth 3 -exec bash -c 'cd $0 && go build -v ./...' {} \;
+COPY go.* ./
+RUN go mod download
 
 # build project
-COPY *.go ./
-RUN CIRCLE_BUILD_NUM=build123 CIRCLE_SHA1=aabbccddeeff gox -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -os="linux" -arch="amd64" -output "release/yubi-oath-vpn-{{.OS}}_{{.Arch}}"
-RUN release/yubi-oath-vpn-linux_amd64 --version
+COPY . ./
+RUN --mount=type=cache,target=/go/.cache CIRCLE_BUILD_NUM=build123 CIRCLE_SHA1=aabbccddeeff go build -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -o yubi-oath-vpn-linux_amd64 ./cmd/yubi-oath-vpn/
+ENTRYPOINT ["./yubi-oath-vpn-linux_amd64"]
