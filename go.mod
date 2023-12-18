@@ -12,8 +12,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.27.0
 	github.com/stretchr/testify v1.8.0
-	golang.org/x/crypto v0.0.0-20220824171710-5757bc0c5503
-	golang.org/x/sys v0.0.0-20220823224334-20c2bfdbfe24
+	golang.org/x/crypto v0.17.0
+	golang.org/x/sys v0.15.0
 )
 
 require (
