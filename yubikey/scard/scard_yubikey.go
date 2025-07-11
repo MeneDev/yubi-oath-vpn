@@ -170,7 +170,12 @@ func (key *scardYubiKey) GetCodeWithPassword(pwd string, slotName string) (strin
 		panic("Verification failed")
 	}
 
-	var cmd_5 = []byte{0x00, byte(CALCULATE_ALL), 0x00, 0x01, 0x0A, 0x74, 0x08}
+	var cmd_5 = []byte{
+		0x00, byte(CALCULATE_ALL), 0x00, 0x01,
+		0x00,       // This makes it an extended-length APDU
+		0x00, 0x0A, // Payload size 0x000A
+		0x74, 0x08, // There's going to be a time value of length 8
+	}
 
 	timeBuffer := make([]byte, 8)
 
