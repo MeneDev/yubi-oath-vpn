@@ -184,7 +184,7 @@ func (mon *scardMon) updateLoop() {
 			var err error
 			log.Info().Msg("Listing scard readers")
 			readers, err = ctx.ListReaders()
-			if err != nil {
+			if err != nil && err != scard.ErrNoReadersAvailable {
 				log.Error().Err(err).Msg("Could not list scard readers, assuming broken context")
 				contextBroken = true
 				time.Sleep(100 * time.Millisecond)
