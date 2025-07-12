@@ -52,12 +52,12 @@ jobs:
           name: Build project for linux
           command: |
             tag="$(semantics --output-tag --dry-run)"
-            go build -o release/yubi-oath-vpn-linux_amd64 -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -v github.com/MeneDev/yubi-oath-vpn/cmd/yubi-oath-vpn -tags "glib_2_66"
+            go build -o release/yubi-oath-vpn-linux_amd64  -tags "glib_2_66" -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -v github.com/MeneDev/yubi-oath-vpn/cmd/yubi-oath-vpn
       - run:
           name: Build project for windows
           command: |
             tag="$(semantics --output-tag --dry-run)"
-            CGO_LDFLAGS_ALLOW='.*' CGO_CFLAGS_ALLOW='.*' CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 GOOS=windows GOARCH=amd64 PKG_CONFIG_PATH=/usr/x86_64-w64-mingw32/sys-root/mingw/lib/pkgconfig go build -o release/windows/yubi-oath-vpn-win_amd64.exe -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -v github.com/MeneDev/yubi-oath-vpn/cmd/yubi-oath-vpn -tags "glib_2_66"
+            CGO_LDFLAGS_ALLOW='.*' CGO_CFLAGS_ALLOW='.*' CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ CGO_ENABLED=1 GOOS=windows GOARCH=amd64 PKG_CONFIG_PATH=/usr/x86_64-w64-mingw32/sys-root/mingw/lib/pkgconfig go build -o release/windows/yubi-oath-vpn-win_amd64.exe -tags "glib_2_66" -ldflags="-s -w -X \"main.Version=${tag:-not a release}\" -X \"main.BuildDate=$(date --utc)\" -X \"main.BuildNumber=$CIRCLE_BUILD_NUM\" -X \"main.BuildCommit=$CIRCLE_SHA1\"" -v github.com/MeneDev/yubi-oath-vpn/cmd/yubi-oath-vpn
 
       - run: release/yubi-oath-vpn-linux_amd64 --version
 
