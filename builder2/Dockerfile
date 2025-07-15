@@ -3,7 +3,7 @@ FROM fedora:42
 RUN dnf install -y \
         findutils \
         git \
-        golang \
+        golang-1.24.5 \
         gtk3-devel \
         libudev-devel \
         libusbx-devel \
