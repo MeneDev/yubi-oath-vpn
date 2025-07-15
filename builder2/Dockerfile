@@ -1,12 +1,12 @@
 FROM cimg/go:1.24.5
 
 RUN sudo apt-get update && sudo apt-get install -y \
-    libc6-dev \
     libgtk-3-dev \
     libpcsclite-dev \
     libudev-dev \
     libusb-1.0-0-dev \
     mingw-w64 \
+    mingw-w64-tools \
 && sudo rm -rf /var/lib/apt/lists/*
 
 ENV GOPATH=/go
