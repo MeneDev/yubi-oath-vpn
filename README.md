@@ -1,4 +1,4 @@
-# yubi-oath-vpn monitor [![CircleCI](https://circleci.com/gh/MeneDev/yubi-oath-vpn.svg?style=svg)](https://circleci.com/gh/MeneDev/yubi-oath-vpn) [![Follow @MeneDev on Twitter](https://img.shields.io/twitter/follow/MeneDev.svg?style=social&label=%40MeneDev)](https://twitter.com/MeneDev)
+# yubi-oath-vpn monitor [![CircleCI](https://circleci.com/gh/MeneDev/yubi-oath-vpn.svg?style=svg)](https://circleci.com/gh/MeneDev/yubi-oath-vpn) [![Follow @mene@mastodon.social](https://img.shields.io/mastodon/follow/38654)](https://mastodon.social/@mene)
 
 Simply insert your Yubikey to an USB-slot and connect to your 2FA-VPN. 
 
@@ -41,7 +41,7 @@ Example:
  * Only works with OpenVPN
  * VPN must use tun device
  * Must be the only tun device
- * VPN must use TOTP
+ * VPN must be secured with TOTP
 
 ## Limitations on Linux
  * nmcli is required to bring up the VPN
@@ -60,6 +60,8 @@ We use Yubikeys for two factor authentication against our VPN.
 We have a Bash script with similar functionality, but the tools (ykman, yubioath) keep changing and dbus-monitor was behaving differently depending on Linux distribution.
 
 ## Disclaimer
-Only tested against one Yubikey 4 and one Yubikey 5 version.
-It's my first go project. Expect bugs and low code quality.
-That being said it's in active use for several years on different systems and seems to work just fine.
+Only tested against one Yubikey 4 and one Yubikey 5 version.  
+It's my first go project. Expect bugs and low code quality.  
+That being said, it's in active use for several years on different systems and seems to work just fine.  
+I haven't used this project myself since 2018, but I'm happy about PRs.  
+PRs of forks won't be able to pass the CI because each build requires credentials. I'll create a secondary PR off of your PR until I get around to fix that process.
