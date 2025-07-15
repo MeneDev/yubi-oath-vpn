@@ -5,6 +5,7 @@ RUN sudo apt-get update && sudo apt-get install -y \
     libpcsclite-dev \
     libudev-dev \
     libusb-1.0-0-dev \
+    mingw-w64 \
 && sudo rm -rf /var/lib/apt/lists/*
 
 ENV GOPATH /go
