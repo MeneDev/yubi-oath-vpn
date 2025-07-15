@@ -1,6 +1,6 @@
 module github.com/MeneDev/yubi-oath-vpn
 
-go 1.19
+go 1.24
 
 require (
 	github.com/ebfe/scard v0.0.0-20190212122703-c3d1b1916a95
