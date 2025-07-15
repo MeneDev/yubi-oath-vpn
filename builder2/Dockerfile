@@ -1,25 +1,34 @@
-FROM cimg/go:1.24.5
+FROM fedora:42
 
-RUN sudo apt-get update && sudo apt-get install -y \
-    libgtk-3-dev \
-    libpcsclite-dev \
-    libudev-dev \
-    libusb-1.0-0-dev \
-    mingw-w64 \
-    mingw-w64-common \
-    mingw-w64-tools \
-    mingw-w64-dev \
-    gcc-mingw-w64-x86-64 \
-    gettext \
-&& sudo rm -rf /var/lib/apt/lists/*
+RUN dnf install -y \
+        findutils \
+        git \
+        golang \
+        gtk3-devel \
+        libudev-devel \
+        libusbx-devel \
+        mingw32-gcc \
+        mingw64-gcc \
+        mingw32-gcc-c++ \
+        mingw32-glib2 \
+        mingw32-gtk3 \
+        mingw32-libusbx \
+        mingw64-gcc-c++ \
+        mingw64-glib2 \
+        mingw64-gtk3 \
+        mingw64-libusbx \
+        pcsc-lite-devel \
+        zip \
+        && \
+        dnf clean all
 
 ENV GOPATH=/go
 ENV GOCACHE=/go/.cache
 ENV PATH="$PATH:$GOPATH/bin"
 
 # hack, but currently don't bother how to properly setup go in current version
-RUN sudo mkdir /go
-RUN sudo chmod a+rwx /go
+RUN mkdir /go
+RUN chmod a+rwx /go
 
 RUN go install github.com/tcnksm/ghr@v0.17.0 
 RUN go install github.com/stevenmatthewt/semantics@v2.0.4
