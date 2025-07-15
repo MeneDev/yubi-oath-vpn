@@ -12,8 +12,8 @@ ENV GOCACHE /go/.cache
 ENV PATH "$PATH:$GOPATH/bin"
 
 # hack, but currently don't bother how to properly setup go in current version
-RUN mkdir /go
-RUN chmod a+rwx /go
+RUN sudo mkdir /go
+RUN sudo chmod a+rwx /go
 
 RUN go install github.com/tcnksm/ghr@v0.17.0 
 RUN go install github.com/stevenmatthewt/semantics@v2.0.4
