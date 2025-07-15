@@ -1,6 +1,7 @@
 FROM cimg/go:1.24.5
 
 RUN sudo apt-get update && sudo apt-get install -y \
+    libc6-dev \
     libgtk-3-dev \
     libpcsclite-dev \
     libudev-dev \
@@ -8,9 +9,9 @@ RUN sudo apt-get update && sudo apt-get install -y \
     mingw-w64 \
 && sudo rm -rf /var/lib/apt/lists/*
 
-ENV GOPATH /go
-ENV GOCACHE /go/.cache
-ENV PATH "$PATH:$GOPATH/bin"
+ENV GOPATH=/go
+ENV GOCACHE=/go/.cache
+ENV PATH="$PATH:$GOPATH/bin"
 
 # hack, but currently don't bother how to properly setup go in current version
 RUN sudo mkdir /go
