@@ -6,7 +6,11 @@ RUN sudo apt-get update && sudo apt-get install -y \
     libudev-dev \
     libusb-1.0-0-dev \
     mingw-w64 \
+    mingw-w64-common \
     mingw-w64-tools \
+    mingw-w64-dev \
+    gcc-mingw-w64-x86-64 \
+    gettext \
 && sudo rm -rf /var/lib/apt/lists/*
 
 ENV GOPATH=/go
